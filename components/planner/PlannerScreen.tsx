@@ -251,7 +251,7 @@ export function PlannerScreen() {
           type: "Feature",
           geometry: {
             type: "LineString",
-            coordinates: dbRoute.points.map((p) => [p.lng, p.lat]),
+            coordinates: dbRoute.points.map((p: { lng: number; lat: number }) => [p.lng, p.lat]),
           },
           properties: {},
         });

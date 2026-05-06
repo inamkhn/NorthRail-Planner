@@ -132,7 +132,7 @@ export function LocationsList({
 
       {/* Click Detail Card */}
       {detailLocation && (
-        <div className="absolute left-[320px] top-1/2 z-20 -translate-y-1/2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 sm:absolute sm:inset-auto sm:left-[320px] sm:top-1/2 sm:-translate-y-1/2 sm:bg-transparent">
           <LocationDetailCard
             location={detailLocation}
             onClose={() => setDetailLocationId(null)}

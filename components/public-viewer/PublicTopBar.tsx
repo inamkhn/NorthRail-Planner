@@ -134,19 +134,25 @@ export function PublicTopBar({
   const [activeFilter, setActiveFilter] = useState<string>("All");
 
   return (
-    <header className="flex h-16 w-full items-center justify-between border-b border-zinc-200 bg-white px-6">
-      {/* Left side: Logo & Title */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#db2777]">
-          <Icon name="route" className="h-4 w-4 text-white" />
+    <header className="flex flex-col sm:flex-row w-full items-start sm:items-center justify-between border-b border-zinc-200 bg-white px-4 sm:px-6 py-3 sm:py-0 min-h-[64px] gap-3 sm:gap-0">
+      {/* Left side: Logo & Title (Always visible at top on mobile) */}
+      <div className="flex w-full items-center justify-between sm:w-auto">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#db2777]">
+            <Icon name="route" className="h-4 w-4 text-white" />
+          </div>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900">
+            NorthRail Planner
+          </h1>
         </div>
-        <h1 className="text-xl font-bold tracking-tight text-zinc-900">
-          NorthRail Planner
-        </h1>
+        {/* Auth can sit next to title on mobile for convenience */}
+        <div className="sm:hidden">
+          <AuthSection />
+        </div>
       </div>
 
       {/* Right side: Tools, Filters & Auth */}
-      <div className="flex items-center gap-4">
+      <div className="flex w-full sm:w-auto items-center gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
         <button
           type="button"
           className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[#db2777] transition-colors hover:bg-pink-50"
@@ -155,10 +161,10 @@ export function PublicTopBar({
           Reset View
         </button>
 
-        <div className="h-6 w-px bg-zinc-200" />
+        <div className="hidden sm:block h-6 w-px bg-zinc-200 shrink-0" />
 
         {/* Route Type Pills */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           {ROUTE_FILTERS.map((f) => (
             <button
               key={f}
@@ -175,19 +181,24 @@ export function PublicTopBar({
           ))}
         </div>
 
-        <div className="h-6 w-px bg-zinc-200" />
+        <div className="hidden sm:block h-6 w-px bg-zinc-200 shrink-0" />
 
         {/* Location Dropdown */}
-        <LocationDropdown
+        <div className="shrink-0">
+          <LocationDropdown
           locations={locations}
           selectedLocationId={selectedLocationId}
           onSelectLocation={onSelectLocation}
         />
 
-        <div className="h-6 w-px bg-zinc-200" />
+        </div>
 
-        {/* Auth */}
-        <AuthSection />
+        <div className="hidden sm:block h-6 w-px bg-zinc-200 shrink-0" />
+
+        {/* Auth - hidden on mobile since it's at the top */}
+        <div className="hidden sm:block shrink-0">
+          <AuthSection />
+        </div>
       </div>
     </header>
   );

@@ -14,7 +14,7 @@ export function RouteVariantsPanel({
   onSelectVariant,
 }: RouteVariantsPanelProps) {
   return (
-    <div className="pointer-events-auto w-72 rounded-2xl bg-white shadow-xl ring-1 ring-zinc-200 overflow-hidden">
+    <div className="pointer-events-auto w-72 max-w-[calc(100vw-1rem)] rounded-2xl bg-white shadow-xl ring-1 ring-zinc-200 overflow-hidden">
       {/* Header */}
       <div className="border-b border-zinc-100 px-4 py-3">
         <h3 className="text-sm font-semibold text-zinc-900">Route Variants</h3>

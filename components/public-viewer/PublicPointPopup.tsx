@@ -10,7 +10,7 @@ interface PublicPointPopupProps {
 export function PublicPointPopup({ label, notes, photos, onClose }: PublicPointPopupProps) {
   // Try to parse notes for "TOTAL LENGTH: 12.3 km" or just show it if provided
   return (
-    <div className="flex w-80 flex-col gap-4 p-1">
+    <div className="flex w-[280px] sm:w-80 flex-col gap-4 p-1">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

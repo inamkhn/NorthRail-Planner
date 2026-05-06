@@ -58,7 +58,7 @@ export function LeftPanel({
 
   if (view === "new-location") {
     return (
-      <aside className="relative flex w-[320px] shrink-0 flex-col bg-white">
+      <aside className="relative flex w-full h-full shrink-0 flex-col bg-white">
         <NewLocationForm
           onBack={() => onChangeView("list")}
           onSave={onAddLocation}
@@ -72,7 +72,7 @@ export function LeftPanel({
 
   if (view === "routes" && selectedLocation) {
     return (
-      <aside className="relative flex w-[320px] shrink-0 flex-col bg-white">
+      <aside className="relative flex w-full h-full shrink-0 flex-col bg-white">
         <LocationRoutesPage
           location={selectedLocation}
           onBack={() => onChangeView("list")}
@@ -86,7 +86,7 @@ export function LeftPanel({
 
   if (view === "create-route" && selectedLocation) {
     return (
-      <aside className="relative flex w-[320px] shrink-0 flex-col bg-white">
+      <aside className="relative flex w-full h-full shrink-0 flex-col bg-white">
         <CreateRouteForm
           location={selectedLocation}
           onBack={() => onChangeView("routes")}
@@ -104,7 +104,7 @@ export function LeftPanel({
   }
 
   return (
-    <aside className="relative flex w-[320px] shrink-0 flex-col bg-white">
+    <aside className="relative flex w-full h-full shrink-0 flex-col bg-white">
       <LocationsList
         locations={locations}
         onSelectLocation={(id) => {

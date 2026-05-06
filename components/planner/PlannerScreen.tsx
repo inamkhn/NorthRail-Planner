@@ -304,8 +304,9 @@ export function PlannerScreen() {
   return (
     <div className="flex h-[100svh] w-full flex-col bg-white">
       <TopBar />
-      <div className="flex flex-1 overflow-hidden">
-        <LeftPanel
+      <div className="flex flex-col-reverse sm:flex-row flex-1 overflow-hidden">
+        <div className="flex h-1/2 w-full shrink-0 flex-col sm:h-auto sm:w-[320px]">
+          <LeftPanel
           view={view}
           locations={locations}
           selectedLocationId={selectedLocationId}
@@ -321,9 +322,10 @@ export function PlannerScreen() {
           draftLat={markerPosition?.lat}
           draftLng={markerPosition?.lng}
         />
+        </div>
 
         {/* Map area */}
-        <div className="relative min-w-0 flex-1">
+        <div className="relative h-1/2 min-w-0 flex-1 sm:h-auto">
           <MapCanvas
             isPickingLocation={isPickingLocation}
             onPickLocation={handleMapPick}
@@ -341,7 +343,7 @@ export function PlannerScreen() {
           />
 
           {rightPanelTab && (
-            <div className="pointer-events-none absolute right-5 top-16 z-20 flex flex-col items-end">
+            <div className="pointer-events-none absolute right-2 top-12 sm:right-5 sm:top-16 z-20 flex flex-col items-end">
               {rightPanelTab === "variants" && (
                 <RouteVariantsPanel
                   variants={dbRouteVariants}

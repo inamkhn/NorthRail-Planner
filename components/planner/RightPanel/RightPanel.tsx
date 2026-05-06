@@ -12,7 +12,7 @@ export function RightPanel({
   onToggleLegend,
 }: RightPanelProps) {
   return (
-    <div className="pointer-events-none absolute right-5 top-5 z-10 flex gap-2">
+    <div className="pointer-events-none absolute right-2 top-2 sm:right-5 sm:top-5 z-10 flex flex-wrap justify-end gap-2 px-2">
       <button
         type="button"
         onClick={onToggleVariants}

@@ -353,7 +353,7 @@ export function PublicMapCanvas({
       <div ref={containerRef} className="h-full w-full" />
 
       {/* Map Controls */}
-      <div className="absolute left-6 top-6 flex gap-2 shadow-sm">
+      <div className="absolute left-4 top-4 sm:left-6 sm:top-6 flex gap-2 shadow-sm">
         <div className="flex flex-col overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-black/5">
           <button
             onClick={() => mapRef.current?.zoomIn()}

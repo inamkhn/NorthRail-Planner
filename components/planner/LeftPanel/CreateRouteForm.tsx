@@ -92,7 +92,7 @@ function AddPointPanel({
   };
 
   return (
-    <div className="absolute left-[320px] top-0 z-20 h-full w-[340px] overflow-hidden bg-white shadow-xl">
+    <div className="fixed inset-0 sm:absolute sm:inset-auto sm:left-[320px] sm:top-0 z-50 sm:z-20 h-full w-full sm:w-[340px] overflow-hidden bg-white shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-100 p-5">
           <h3 className="text-lg font-semibold text-zinc-900">Add Coordinate Point</h3>

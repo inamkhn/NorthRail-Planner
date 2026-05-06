@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/Icon";
 import {
   SignInButton,
@@ -61,23 +62,42 @@ function LocationDropdown({
   onSelectLocation: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [rect, setRect] = useState<{ top: number; right: number } | null>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
+      if (
+        (ref.current && ref.current.contains(e.target as Node)) ||
+        (dropdownRef.current && dropdownRef.current.contains(e.target as Node))
+      ) {
+        return;
       }
+      setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    // Auto-close on scroll/resize since we are breaking out of the document flow
+    window.addEventListener("resize", () => setOpen(false));
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("resize", () => setOpen(false));
+    };
   }, []);
+
+  useEffect(() => {
+    if (open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      setRect({ top: r.bottom, right: r.right });
+    }
+  }, [open]);
 
   const selected = locations.find((l) => l.id === selectedLocationId);
 
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
+        ref={ref}
         type="button"
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1.5 sm:gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
@@ -88,8 +108,13 @@ function LocationDropdown({
         </span>
         <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-zinc-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
       </button>
-      {open && (
-        <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-zinc-100 bg-white p-1.5 shadow-xl ring-1 ring-black/5">
+
+      {open && rect && typeof document !== "undefined" && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{ top: rect.top + 8, left: Math.max(16, rect.right - 224) }}
+          className="fixed z-[100] w-56 rounded-xl border border-zinc-100 bg-white p-1.5 shadow-xl ring-1 ring-black/5"
+        >
           <button
             onClick={() => {
               onSelectLocation("");
@@ -120,9 +145,10 @@ function LocationDropdown({
               {loc.name}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 

@@ -85,7 +85,7 @@ export function PlannerScreen() {
 
   if (view === "create-route" && draftRoute) {
     const features: GeoJSON.Feature<GeoJSON.Geometry>[] = [];
-    draftRoute.points.forEach((p) => {
+    draftRoute.points.forEach((p, idx) => {
       features.push({
         type: "Feature",
         geometry: { type: "Point", coordinates: [p.lng, p.lat] },
@@ -93,6 +93,7 @@ export function PlannerScreen() {
           label: p.label,
           notes: p.notes,
           photos: p.photos ? JSON.stringify(p.photos) : undefined,
+          isEndpoint: idx === 0 || idx === draftRoute.points.length - 1,
         },
       });
     });
@@ -234,7 +235,8 @@ export function PlannerScreen() {
       if (!dbRoute) return;
 
       const features: GeoJSON.Feature<GeoJSON.Geometry>[] = [];
-      for (const p of dbRoute.points) {
+      for (let i = 0; i < dbRoute.points.length; i++) {
+        const p = dbRoute.points[i];
         features.push({
           type: "Feature",
           geometry: { type: "Point", coordinates: [p.lng, p.lat] },
@@ -242,6 +244,7 @@ export function PlannerScreen() {
             label: p.label,
             notes: p.notes,
             photos: p.photos ? JSON.stringify(p.photos) : undefined,
+            isEndpoint: i === 0 || i === dbRoute.points.length - 1,
           },
         });
       }

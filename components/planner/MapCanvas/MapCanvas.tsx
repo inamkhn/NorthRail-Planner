@@ -58,7 +58,7 @@ export function MapCanvas({
 
   const [baseStyle, setBaseStyle] = useState<BaseStyle>("streets");
   const style =
-    baseStyle === "satellite" ? MapStyle.SATELLITE : MapStyle.STREETS;
+    baseStyle === "satellite" ? MapStyle.SATELLITE : "https://api.maptiler.com/maps/base-v4/style.json";
 
   // ── Refs for latest prop values (read inside stable callbacks) ──────────
   const isPickingRef = useRef(isPickingLocation ?? false);
@@ -124,8 +124,13 @@ export function MapCanvas({
     // Point layer interactivity
     const POINTS_LAYER_ID = "planner-route-layer-points";
 
-    map.on("mouseenter", POINTS_LAYER_ID, () => {
-      map.getCanvas().style.cursor = "pointer";
+    map.on("mouseenter", POINTS_LAYER_ID, (e) => {
+      if (!e.features || e.features.length === 0) return;
+      const props = e.features[0].properties as any;
+      const hasDetails = props.label || props.notes || (props.photos && props.photos !== "[]");
+      if (hasDetails) {
+        map.getCanvas().style.cursor = "pointer";
+      }
     });
 
     map.on("mouseleave", POINTS_LAYER_ID, () => {
@@ -137,6 +142,9 @@ export function MapCanvas({
       const feature = e.features[0];
       const coords = (feature.geometry as GeoJSON.Point).coordinates;
       const props = feature.properties as any;
+
+      const hasDetails = props.label || props.notes || (props.photos && props.photos !== "[]");
+      if (!hasDetails) return;
 
       if (popupRef.current) {
         popupRef.current.remove();

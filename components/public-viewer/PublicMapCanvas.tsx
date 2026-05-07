@@ -62,7 +62,7 @@ export function PublicMapCanvas({
 
     const map = new MapTilerMap({
       container: containerRef.current,
-      style: baseStyle === "satellite" ? MapStyle.SATELLITE : MapStyle.STREETS,
+      style: baseStyle === "satellite" ? MapStyle.SATELLITE : "https://api.maptiler.com/maps/base-v4/style.json",
       center: [10.2, 52.75],
       zoom: 7.5,
       hash: false,
@@ -92,6 +92,13 @@ export function PublicMapCanvas({
 
       const coordinates = (feature.geometry as any).coordinates.slice();
 
+      let hasDetails = true;
+      if (props.type !== "location") {
+        hasDetails = props.label || props.notes || (props.photos && props.photos !== "[]");
+      }
+
+      if (!hasDetails) return;
+
       const popupNode = document.createElement("div");
       if (props.type === "location") {
         createRoot(popupNode).render(
@@ -99,7 +106,6 @@ export function PublicMapCanvas({
             label={props.name}
             notes="Location"
             photos={[]}
-            onClose={() => popupRef.current?.remove()}
           />,
         );
       } else {
@@ -108,7 +114,6 @@ export function PublicMapCanvas({
             label={props.label}
             notes={props.notes}
             photos={props.photos ? JSON.parse(props.photos) : []}
-            onClose={() => popupRef.current?.remove()}
           />,
         );
       }
@@ -116,8 +121,10 @@ export function PublicMapCanvas({
       if (popupRef.current) popupRef.current.remove();
 
       popupRef.current = new Popup({
+        offset: 15,
         closeButton: false,
         closeOnClick: true,
+        className: "custom-point-popup",
         maxWidth: "350px",
       })
         .setLngLat(coordinates)
@@ -136,7 +143,19 @@ export function PublicMapCanvas({
       const features = map.queryRenderedFeatures(e.point, {
         layers: clickableLayers,
       });
-      map.getCanvas().style.cursor = features.length ? "pointer" : "";
+
+      let cursor = "";
+      if (features.length > 0) {
+        const props = features[0].properties;
+        if (props?.type === "location") {
+          cursor = "pointer";
+        } else if (props) {
+          const hasDetails = props.label || props.notes || (props.photos && props.photos !== "[]");
+          if (hasDetails) cursor = "pointer";
+        }
+      }
+
+      map.getCanvas().style.cursor = cursor;
     };
     map.on("mousemove", handleMouseMove);
 
@@ -235,7 +254,8 @@ export function PublicMapCanvas({
             });
           }
 
-          for (const p of route.points) {
+          for (let i = 0; i < route.points.length; i++) {
+            const p = route.points[i];
             features.push({
               type: "Feature",
               geometry: { type: "Point", coordinates: [p.lng, p.lat] },
@@ -245,6 +265,7 @@ export function PublicMapCanvas({
                 notes: p.notes,
                 photos: JSON.stringify(p.photos || []),
                 type: "point",
+                isEndpoint: i === 0 || i === route.points.length - 1,
               },
             });
           }
@@ -266,7 +287,7 @@ export function PublicMapCanvas({
             id: `${sourceId}-points`,
             type: "circle",
             source: sourceId,
-            filter: ["==", "type", "point"],
+            filter: ["all", ["==", "type", "point"], ["==", "isEndpoint", true]],
             paint: {
               "circle-color": "#ffffff",
               "circle-radius": 8,
@@ -279,7 +300,7 @@ export function PublicMapCanvas({
             id: `${sourceId}-labels`,
             type: "symbol",
             source: sourceId,
-            filter: ["==", "type", "point"],
+            filter: ["all", ["==", "type", "point"], ["==", "isEndpoint", true]],
             layout: {
               "text-field": ["get", "label"],
               "text-size": 12,

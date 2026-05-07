@@ -72,7 +72,7 @@ export function addOrUpdateRouteLayer(map: MapTilerMap, variant: RouteVariantDef
       id: pointsLayerId,
       type: "circle",
       source: IDS.routeSource,
-      filter: ["==", "$type", "Point"],
+      filter: ["all", ["==", "$type", "Point"], ["==", "isEndpoint", true]],
       paint: {
         "circle-radius": 5,
         "circle-color": "#ffffff",
@@ -90,7 +90,7 @@ export function addOrUpdateRouteLayer(map: MapTilerMap, variant: RouteVariantDef
       id: labelsLayerId,
       type: "symbol",
       source: IDS.routeSource,
-      filter: ["==", "$type", "Point"],
+      filter: ["all", ["==", "$type", "Point"], ["==", "isEndpoint", true]],
       layout: {
         "text-field": ["get", "label"],
         "text-size": 12,

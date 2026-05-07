@@ -33,6 +33,10 @@ export function NewLocationForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      alert("Location Name is required");
+      return;
+    }
     onSave({
       name,
       type,
@@ -70,13 +74,14 @@ export function NewLocationForm({
         {/* Location Name */}
         <div className="space-y-2">
           <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Location Details
+            Location Details <span className="text-[#db2777]">*</span>
           </label>
           <input
             type="text"
             placeholder="e.g. Central Station Hub"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            required
             className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 outline-none ring-1 ring-transparent transition-all focus:border-[#db2777] focus:ring-[#db2777]/20"
           />
         </div>

@@ -134,8 +134,48 @@ export function PublicMapCanvas({
         .addTo(map);
     });
 
-    // Cursor styling via generic map mousemove (dynamic layer IDs)
+    // ── Route hover highlight helpers ─────────────────────────────────────
+    function resetRouteWidths() {
+      const mapAny = map as any;
+      const allLayers = mapAny.getStyle?.()?.layers ?? [];
+      for (const layer of allLayers) {
+        const id = layer?.id as string;
+        if (!id?.startsWith("public-route-")) continue;
+        if (id.endsWith("-points") || id.endsWith("-labels") || id.endsWith("-hit")) continue;
+        if (id.endsWith("-casing")) {
+          mapAny.setPaintProperty(id, "line-width", 7);
+          mapAny.setPaintProperty(id, "line-opacity", 0.25);
+        } else if (id.endsWith("-line")) {
+          mapAny.setPaintProperty(id, "line-width", 4);
+        }
+      }
+    }
+
+    // Cursor styling + route hover (dynamic layer IDs)
     const handleMouseMove = (e: any) => {
+      const mapAny = map as any;
+      resetRouteWidths();
+
+      // Check for route hit layer hover
+      const allFeatures = map.queryRenderedFeatures(e.point);
+      const hitFeature = allFeatures.find((f: any) => {
+        const id = f.layer.id as string;
+        return id.startsWith("public-route-") && id.endsWith("-hit");
+      });
+
+      if (hitFeature) {
+        const lineId = (hitFeature.layer.id as string).replace("-hit", "-line");
+        const casingId = (hitFeature.layer.id as string).replace("-hit", "-casing");
+        mapAny.setPaintProperty(lineId, "line-width", 6);
+        if (mapAny.getLayer?.(casingId)) {
+          mapAny.setPaintProperty(casingId, "line-width", 10);
+          mapAny.setPaintProperty(casingId, "line-opacity", 0.5);
+        }
+        map.getCanvas().style.cursor = "pointer";
+        return;
+      }
+
+      // Point / circle cursor styling
       const clickableLayers = map
         .getStyle()
         .layers.filter(
@@ -161,8 +201,15 @@ export function PublicMapCanvas({
     };
     map.on("mousemove", handleMouseMove);
 
+    const handleMouseLeave = () => {
+      resetRouteWidths();
+      map.getCanvas().style.cursor = "";
+    };
+    map.on("mouseleave", handleMouseLeave);
+
     return () => {
       map.off("mousemove", handleMouseMove);
+      map.off("mouseleave", handleMouseLeave);
       map.remove();
       mapRef.current = null;
       setMapReady(false);
@@ -280,6 +327,20 @@ export function PublicMapCanvas({
 
           mapAny.addSource(sourceId, { type: "geojson", data: geojson });
 
+          // Casing layer behind main line
+          mapAny.addLayer({
+            id: `${sourceId}-casing`,
+            type: "line",
+            source: sourceId,
+            filter: ["==", "type", "line"],
+            layout: { "line-join": "round", "line-cap": "round" },
+            paint: {
+              "line-color": route.color || "#0284c7",
+              "line-width": 7,
+              "line-opacity": 0.25,
+            },
+          });
+
           mapAny.addLayer({
             id: `${sourceId}-line`,
             type: "line",
@@ -287,6 +348,20 @@ export function PublicMapCanvas({
             filter: ["==", "type", "line"],
             layout: { "line-join": "round", "line-cap": "round" },
             paint: { "line-color": route.color || "#0284c7", "line-width": 4 },
+          });
+
+          // Invisible wide hit layer for easy hover
+          mapAny.addLayer({
+            id: `${sourceId}-hit`,
+            type: "line",
+            source: sourceId,
+            filter: ["==", "type", "line"],
+            layout: { "line-join": "round", "line-cap": "round" },
+            paint: {
+              "line-color": "#000",
+              "line-width": 12,
+              "line-opacity": 0,
+            },
           });
 
           mapAny.addLayer({

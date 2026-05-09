@@ -23,6 +23,8 @@ export function TopBar({ title = "NorthRail Planner" }: TopBarProps) {
         <div className="flex items-center gap-3 sm:hidden">
           <Link
             href="/"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-xs font-medium text-zinc-500 hover:text-zinc-900"
           >
             Public View
@@ -35,6 +37,8 @@ export function TopBar({ title = "NorthRail Planner" }: TopBarProps) {
       <div className="hidden sm:flex items-center gap-4">
         <Link
           href="/"
+          target="_blank"
+          rel="noopener noreferrer"
           className="text-sm font-medium text-zinc-500 hover:text-zinc-900"
         >
           Public View

@@ -53,9 +53,8 @@ export function PlannerScreen() {
 
   // ── Route state ──────────────────────────────────────────────────────────
   const [draftRoute, setDraftRoute] = useState<RouteState | null>(null);
-  const [viewingRoute, setViewingRoute] = useState<RouteVariantDef | null>(
-    null,
-  );
+  const [visibleRouteIds, setVisibleRouteIds] = useState<Set<string>>(new Set());
+  const [loadedRoutes, setLoadedRoutes] = useState<Record<string, RouteVariantDef>>({});
 
   // ── City boundary state ──────────────────────────────────────────────────
   const [cityBoundaryGeojson, setCityBoundaryGeojson] =
@@ -81,7 +80,7 @@ export function PlannerScreen() {
   }, [locations]);
 
   // ── Active variant for map rendering ─────────────────────────────────────
-  let activeVariantToRender: RouteVariantDef | null = null;
+  let activeVariantsToRender: RouteVariantDef[] = [];
 
   if (view === "create-route" && draftRoute) {
     const features: GeoJSON.Feature<GeoJSON.Geometry>[] = [];
@@ -93,6 +92,7 @@ export function PlannerScreen() {
           label: p.label,
           notes: p.notes,
           photos: p.photos ? JSON.stringify(p.photos) : undefined,
+          pointType: (p as any).type || "single",
           isEndpoint: idx === 0 || idx === draftRoute.points.length - 1,
         },
       });
@@ -107,7 +107,7 @@ export function PlannerScreen() {
         properties: {},
       });
     }
-    activeVariantToRender = {
+    activeVariantsToRender = [{
       id: "draft-route",
       group: "preferred",
       shortLabel: "DRAFT",
@@ -115,9 +115,13 @@ export function PlannerScreen() {
       color: draftRoute.color,
       lineStyle: draftRoute.lineStyle,
       geojson: { type: "FeatureCollection", features },
-    };
-  } else if (viewingRoute) {
-    activeVariantToRender = viewingRoute;
+    }];
+  } else {
+    for (const routeId of Array.from(visibleRouteIds)) {
+      if (loadedRoutes[routeId]) {
+        activeVariantsToRender.push(loadedRoutes[routeId]);
+      }
+    }
   }
   // No active variant → map shows empty (user hasn't started creating or viewing yet)
 
@@ -146,9 +150,67 @@ export function PlannerScreen() {
   }, [selectedLocationId, locations]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleSelectLocation = useCallback((id: string) => {
+  const handleSelectLocation = useCallback(async (id: string) => {
     setSelectedLocationId(id);
-  }, []);
+    setView("routes");
+    
+    // Load all routes for the location to display them by default
+    const loc = locations.find((l) => l.id === id);
+    if (!loc) return;
+    
+    const newLoadedRoutes: Record<string, RouteVariantDef> = {};
+    const newVisibleIds = new Set<string>();
+    
+    for (const route of loc.routes) {
+      try {
+        const dbRoute = await fetchRoute(route.id);
+        if (!dbRoute) continue;
+        
+        const features: GeoJSON.Feature<GeoJSON.Geometry>[] = [];
+        for (let i = 0; i < dbRoute.points.length; i++) {
+          const p = dbRoute.points[i];
+          features.push({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+            properties: {
+              label: p.label,
+              notes: p.notes,
+              photos: p.photos ? JSON.stringify(p.photos) : undefined,
+              pointType: (p as any).type || "single",
+              isEndpoint: i === 0 || i === dbRoute.points.length - 1,
+            },
+          });
+        }
+
+        if (dbRoute.points.length >= 2) {
+          features.push({
+            type: "Feature",
+            geometry: {
+              type: "LineString",
+              coordinates: dbRoute.points.map((p: { lng: number; lat: number }) => [p.lng, p.lat]),
+            },
+            properties: {},
+          });
+        }
+        
+        newLoadedRoutes[route.id] = {
+          id: route.id,
+          group: "preferred",
+          shortLabel: dbRoute.name,
+          title: dbRoute.name,
+          color: dbRoute.color,
+          lineStyle: dbRoute.lineStyle,
+          geojson: { type: "FeatureCollection", features },
+        };
+        newVisibleIds.add(route.id);
+      } catch (err) {
+        console.error("Failed to load route details:", err);
+      }
+    }
+    
+    setLoadedRoutes((prev) => ({ ...prev, ...newLoadedRoutes }));
+    setVisibleRouteIds(newVisibleIds);
+  }, [locations]);
 
   const handleDeleteLocation = useCallback(async (id: string) => {
     try {
@@ -209,6 +271,7 @@ export function PlannerScreen() {
         label: string;
         notes?: string;
         photos?: string[];
+        type?: "single" | "bulk";
       }[];
     }) => {
       if (!selectedLocationId) return;
@@ -228,50 +291,17 @@ export function PlannerScreen() {
     [selectedLocationId],
   );
 
-  // ── Issue 2: View saved route on map ─────────────────────────────────────
-  const handleViewRoute = useCallback(async (routeId: string) => {
-    try {
-      const dbRoute = await fetchRoute(routeId);
-      if (!dbRoute) return;
-
-      const features: GeoJSON.Feature<GeoJSON.Geometry>[] = [];
-      for (let i = 0; i < dbRoute.points.length; i++) {
-        const p = dbRoute.points[i];
-        features.push({
-          type: "Feature",
-          geometry: { type: "Point", coordinates: [p.lng, p.lat] },
-          properties: {
-            label: p.label,
-            notes: p.notes,
-            photos: p.photos ? JSON.stringify(p.photos) : undefined,
-            isEndpoint: i === 0 || i === dbRoute.points.length - 1,
-          },
-        });
+  // ── Issue 2: Toggle route visibility on map ──────────────────────────────
+  const handleToggleRouteVisibility = useCallback((routeId: string) => {
+    setVisibleRouteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(routeId)) {
+        next.delete(routeId);
+      } else {
+        next.add(routeId);
       }
-
-      if (dbRoute.points.length >= 2) {
-        features.push({
-          type: "Feature",
-          geometry: {
-            type: "LineString",
-            coordinates: dbRoute.points.map((p: { lng: number; lat: number }) => [p.lng, p.lat]),
-          },
-          properties: {},
-        });
-      }
-
-      setViewingRoute({
-        id: routeId,
-        group: "preferred",
-        shortLabel: dbRoute.name,
-        title: dbRoute.name,
-        color: dbRoute.color,
-        lineStyle: dbRoute.lineStyle,
-        geojson: { type: "FeatureCollection", features },
-      });
-    } catch (err) {
-      console.error("Failed to load route for map:", err);
-    }
+      return next;
+    });
   }, []);
 
   // ── Issue 1: Delete route ─────────────────────────────────────────────────
@@ -279,14 +309,18 @@ export function PlannerScreen() {
     async (routeId: string) => {
       try {
         await removeRouteDb(routeId);
-        if (viewingRoute?.id === routeId) setViewingRoute(null);
+        setVisibleRouteIds((prev) => {
+          const next = new Set(prev);
+          next.delete(routeId);
+          return next;
+        });
         const dbLocations = await fetchLocations();
         setLocations(dbLocations.map(mapDbLocation));
       } catch (err) {
         console.error("Failed to delete route:", err);
       }
     },
-    [viewingRoute],
+    [],
   );
 
   // ── Right-panel toggles ───────────────────────────────────────────────────
@@ -319,7 +353,8 @@ export function PlannerScreen() {
           onDeleteLocation={handleDeleteLocation}
           onPickOnMap={handlePickOnMap}
           onSaveRoute={handleSaveRoute}
-          onViewRoute={handleViewRoute}
+          onToggleRouteVisibility={handleToggleRouteVisibility}
+          visibleRouteIds={visibleRouteIds}
           onDeleteRoute={handleDeleteRoute}
           onChangeDraftRoute={setDraftRoute}
           draftLat={markerPosition?.lat}
@@ -333,7 +368,7 @@ export function PlannerScreen() {
             isPickingLocation={isPickingLocation}
             onPickLocation={handleMapPick}
             markerPosition={markerPosition}
-            activeVariant={activeVariantToRender}
+            activeVariants={activeVariantsToRender}
             resistanceVisibility={resistanceLayerVisibility}
             resistanceLayers={[]}
             cityBoundaryGeojson={cityBoundaryGeojson}
@@ -350,8 +385,8 @@ export function PlannerScreen() {
               {rightPanelTab === "variants" && (
                 <RouteVariantsPanel
                   variants={dbRouteVariants}
-                  selectedVariantId={viewingRoute?.id ?? null}
-                  onSelectVariant={handleViewRoute}
+                  selectedVariantId={Array.from(visibleRouteIds)[0] ?? null}
+                  onSelectVariant={handleToggleRouteVisibility}
                 />
               )}
               {/* {rightPanelTab === "legend" && (

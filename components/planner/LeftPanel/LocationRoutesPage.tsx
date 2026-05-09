@@ -8,17 +8,20 @@ export type LocationRoutesPageProps = {
   location: Location;
   onBack: () => void;
   onCreateRoute: () => void;
-  onViewRoute: (routeId: string) => void;
+  onToggleRouteVisibility: (routeId: string) => void;
+  visibleRouteIds: Set<string>;
   onDeleteRoute: (routeId: string) => void;
 };
 
 function RouteListItem({
   route,
-  onView,
+  isVisible,
+  onToggleVisibility,
   onDelete,
 }: {
   route: Route;
-  onView: () => void;
+  isVisible: boolean;
+  onToggleVisibility: () => void;
   onDelete: () => void;
 }) {
   const statusColor = STATUS_COLORS[route.status];
@@ -43,11 +46,15 @@ function RouteListItem({
       </div>
       <button
         type="button"
-        onClick={onView}
-        title="View on map"
-        className="rounded-lg p-1.5 sm:p-2 text-zinc-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+        onClick={onToggleVisibility}
+        title={isVisible ? "Hide route" : "Show route"}
+        className={`rounded-lg p-1.5 sm:p-2 transition-colors ${
+          isVisible
+            ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+            : "text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600"
+        }`}
       >
-        <Icon name="eye" className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        <Icon name={isVisible ? "eye" : "eyeOff"} className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
       </button>
       <button
         type="button"
@@ -65,7 +72,8 @@ export function LocationRoutesPage({
   location,
   onBack,
   onCreateRoute,
-  onViewRoute,
+  onToggleRouteVisibility,
+  visibleRouteIds,
   onDeleteRoute,
 }: LocationRoutesPageProps) {
   return (
@@ -92,7 +100,8 @@ export function LocationRoutesPage({
           <RouteListItem
             key={route.id}
             route={route}
-            onView={() => onViewRoute(route.id)}
+            isVisible={visibleRouteIds.has(route.id)}
+            onToggleVisibility={() => onToggleRouteVisibility(route.id)}
             onDelete={() => onDeleteRoute(route.id)}
           />
         ))}

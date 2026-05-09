@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@/components/ui/Icon";
 import type { Location } from "@/lib/planner/locations";
 
@@ -16,6 +16,7 @@ export type RouteState = {
     label: string;
     notes?: string;
     photos?: string[];
+    type?: "single" | "bulk";
   }[];
 };
 
@@ -60,6 +61,7 @@ function AddPointPanel({
       label: string;
       notes?: string;
       photos?: string[];
+      type?: "single" | "bulk";
     }[],
   ) => void;
   onPickOnMap?: () => void;
@@ -70,19 +72,36 @@ function AddPointPanel({
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
   const [notes, setNotes] = useState("");
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [singlePhotos, setSinglePhotos] = useState<string[]>([]);
+  const [bulkPhotos, setBulkPhotos] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [addDetails, setAddDetails] = useState(false);
   const [endpointType, setEndpointType] = useState<"start" | "end">("start");
   const [bulkText, setBulkText] = useState("");
 
+  const lastProcessedRef = useRef<{lat: number | null, lng: number | null}>({lat: null, lng: null});
+
   useEffect(() => {
-    if (draftLat !== undefined && draftLat !== null)
-      setLat(draftLat.toString());
-    if (draftLng !== undefined && draftLng !== null)
-      setLng(draftLng.toString());
-  }, [draftLat, draftLng]);
+    if (!isOpen) return;
+    if (draftLat !== undefined && draftLat !== null && draftLng !== undefined && draftLng !== null) {
+      if (lastProcessedRef.current.lat === draftLat && lastProcessedRef.current.lng === draftLng) {
+        return;
+      }
+      
+      lastProcessedRef.current = { lat: draftLat, lng: draftLng };
+
+      if (mode === "single") {
+        setLat(draftLat.toString());
+        setLng(draftLng.toString());
+      } else if (mode === "bulk") {
+        setBulkText((prev) => {
+          const newLine = `${draftLat.toFixed(6)}, ${draftLng.toFixed(6)}`;
+          return prev ? `${prev}\n${newLine}` : newLine;
+        });
+      }
+    }
+  }, [draftLat, draftLng, mode, isOpen]);
 
   if (!isOpen) return null;
 
@@ -99,14 +118,15 @@ function AddPointPanel({
             lng: lngNum,
             label: finalLabel,
             notes: notes,
-            photos: photos,
+            photos: singlePhotos,
+            type: "single",
           },
         ]);
         setLabel("");
         setLat("");
         setLng("");
         setNotes("");
-        setPhotos([]);
+        setSinglePhotos([]);
         setAddDetails(false);
         setEndpointType("start");
         onClose();
@@ -122,7 +142,7 @@ function AddPointPanel({
           const latNum = parseFloat(parts[0]);
           const lngNum = parseFloat(parts[1]);
           if (!isNaN(latNum) && !isNaN(lngNum)) {
-            newPoints.push({ lat: latNum, lng: lngNum, label: parts[2] || "" });
+            newPoints.push({ lat: latNum, lng: lngNum, label: parts[2] || "", type: "bulk" as const });
           }
         }
       }
@@ -137,7 +157,7 @@ function AddPointPanel({
           ...newPoints[targetIndex],
           label: finalLabel,
           notes: notes,
-          photos: photos,
+          photos: bulkPhotos,
         };
       }
 
@@ -146,7 +166,7 @@ function AddPointPanel({
         setBulkText("");
         setLabel("");
         setNotes("");
-        setPhotos([]);
+        setBulkPhotos([]);
         setAddDetails(false);
         setEndpointType("start");
         onClose();
@@ -166,7 +186,11 @@ function AddPointPanel({
       // but since it's a server action, it works directly.
       const { uploadRoutePhoto } = await import("@/lib/actions");
       const url = await uploadRoutePhoto(formData);
-      setPhotos((prev) => [...prev, url]);
+      if (mode === "single") {
+        setSinglePhotos((prev) => [...prev, url]);
+      } else {
+        setBulkPhotos((prev) => [...prev, url]);
+      }
     } catch (error) {
       console.error("Upload failed:", error);
     } finally {
@@ -275,6 +299,14 @@ function AddPointPanel({
                 rows={12}
                 className="w-full rounded-lg border border-zinc-200 p-3 text-xs font-mono text-zinc-600 placeholder:text-zinc-300 focus:border-[#db2777] focus:outline-none resize-none"
               />
+              <button
+                type="button"
+                onClick={onPickOnMap}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#db2777] bg-[#db2777]/5 py-2.5 text-xs font-medium text-[#be185d] hover:bg-[#db2777]/10"
+              >
+                <Icon name="marker" className="h-4 w-4" />
+                Pick Location on Map
+              </button>
             </div>
 
             <div className="mb-6 flex items-center justify-between rounded-lg border border-zinc-200 p-3">
@@ -371,18 +403,35 @@ function AddPointPanel({
                 </span>
               </div>
 
-              {photos.length > 0 && (
-                <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-                  {photos.map((url, i) => (
-                    <img
-                      key={i}
-                      src={url}
-                      alt={`Photo ${i + 1}`}
-                      className="h-16 w-16 shrink-0 rounded-lg object-cover border border-zinc-200"
-                    />
-                  ))}
-                </div>
-              )}
+              {(() => {
+                const currentPhotos = mode === "single" ? singlePhotos : bulkPhotos;
+                return currentPhotos.length > 0 ? (
+                  <div className="mb-3 flex gap-2 overflow-x-auto p-1 pb-2">
+                    {currentPhotos.map((url, i) => (
+                      <div key={i} className="relative shrink-0">
+                        <img
+                          src={url}
+                          alt={`Photo ${i + 1}`}
+                          className="h-16 w-16 rounded-lg object-cover border border-zinc-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (mode === "single") {
+                              setSinglePhotos((prev) => prev.filter((_, idx) => idx !== i));
+                            } else {
+                              setBulkPhotos((prev) => prev.filter((_, idx) => idx !== i));
+                            }
+                          }}
+                          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600"
+                        >
+                          <Icon name="close" className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
 
               <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-200 py-4 text-xs font-medium text-zinc-400 hover:border-zinc-300 hover:text-zinc-500">
                 <Icon name="plus" className="h-4 w-4" />
@@ -442,6 +491,7 @@ export function CreateRouteForm({
       label: string;
       notes?: string;
       photos?: string[];
+      type?: "single" | "bulk";
     }[]
   >([]);
   const [showAddPointModal, setShowAddPointModal] = useState(false);
@@ -465,6 +515,7 @@ export function CreateRouteForm({
       label: string;
       notes?: string;
       photos?: string[];
+      type?: "single" | "bulk";
     }[],
   ) => {
     setPoints((p) => [...p, ...newPoints]);
@@ -510,7 +561,7 @@ export function CreateRouteForm({
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-[#db2777] focus:outline-none"
+                className="w-full text-black rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-[#db2777] focus:outline-none"
               />
             </div>
             <div>
@@ -522,7 +573,7 @@ export function CreateRouteForm({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-[#db2777] focus:outline-none resize-none"
+                className="w-full rounded-lg text-black border border-zinc-200 px-3 py-2 text-sm focus:border-[#db2777] focus:outline-none resize-none"
               />
             </div>
             <div>

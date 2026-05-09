@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import type { LocationType } from "@/lib/planner/locations";
+import { searchLocations, type SearchResult } from "@/lib/maptiler/geocoding";
 
 export type NewLocationFormProps = {
   onBack: () => void;
@@ -30,6 +31,11 @@ export function NewLocationForm({
   const [notes, setNotes] = useState("");
   const [lat, setLat] = useState(draftLat?.toString() ?? "");
   const [lng, setLng] = useState(draftLng?.toString() ?? "");
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +50,44 @@ export function NewLocationForm({
       lat: parseFloat(lat) || 0,
       lng: parseFloat(lng) || 0,
     });
+  };
+
+  // Debounced MapTiler search
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!searchQuery.trim() || searchQuery.length < 2) {
+      setSuggestions([]);
+      setShowDropdown(false);
+      return;
+    }
+    searchTimerRef.current = setTimeout(async () => {
+      const results = await searchLocations(searchQuery, 5);
+      setSuggestions(results);
+      setShowDropdown(results.length > 0);
+    }, 300);
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [searchQuery]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleDocClick(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleDocClick);
+    return () => document.removeEventListener("mousedown", handleDocClick);
+  }, []);
+
+  const handleSelectSuggestion = (result: SearchResult) => {
+    setName(result.placeName);
+    setSearchQuery(result.placeName);
+    setLat(result.lat.toString());
+    setLng(result.lng.toString());
+    setSuggestions([]);
+    setShowDropdown(false);
   };
 
   return (
@@ -71,19 +115,42 @@ export function NewLocationForm({
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="flex-1 space-y-6 overflow-y-auto p-5">
-        {/* Location Name */}
-        <div className="space-y-2">
+        {/* Location Name — MapTiler Autocomplete */}
+        <div className="space-y-2" ref={wrapperRef}>
           <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             Location Details <span className="text-[#db2777]">*</span>
           </label>
-          <input
-            type="text"
-            placeholder="e.g. Central Station Hub"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 outline-none ring-1 ring-transparent transition-all focus:border-[#db2777] focus:ring-[#db2777]/20"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search for a location..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setName(e.target.value);
+              }}
+              onFocus={() => {
+                if (suggestions.length > 0) setShowDropdown(true);
+              }}
+              required
+              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 outline-none ring-1 ring-transparent transition-all focus:border-[#db2777] focus:ring-[#db2777]/20"
+            />
+            {showDropdown && (
+              <ul className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-zinc-200 bg-white py-1 shadow-lg">
+                {suggestions.map((result, idx) => (
+                  <li
+                    key={idx}
+                    role="option"
+                    onClick={() => handleSelectSuggestion(result)}
+                    className="cursor-pointer px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50"
+                  >
+                    <div className="font-medium">{result.name}</div>
+                    <div className="mt-0.5 text-xs text-zinc-400">{result.placeName}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         {/* Type Selection */}
@@ -167,14 +234,14 @@ export function NewLocationForm({
         </div> */}
 
         {/* Pick on Map Button */}
-        <button
+        {/* <button
           type="button"
           onClick={onPickOnMap}
           className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#db2777] bg-[#db2777]/10 py-3 text-sm font-medium text-[#be185d] transition-colors hover:bg-[#db2777]/10"
         >
           <Icon name="marker" className="h-4 w-4" />
           Pick on Map
-        </button>
+        </button> */}
 
         {/* Save Location Button */}
         <button

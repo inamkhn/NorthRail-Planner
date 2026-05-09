@@ -16,11 +16,13 @@ type LocationWithRoutes = Awaited<ReturnType<typeof fetchLocations>>[number];
 interface PublicMapCanvasProps {
   locations: LocationWithRoutes[];
   selectedLocationId: string | null;
+  activeFilter: string;
 }
 
 export function PublicMapCanvas({
   locations,
   selectedLocationId,
+  activeFilter,
 }: PublicMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapTilerMap | null>(null);
@@ -237,6 +239,9 @@ export function PublicMapCanvas({
 
       for (const loc of locations) {
         for (const route of loc.routes) {
+          // Apply route type filter — skip if active filter doesn't match
+          if (activeFilter !== "All" && route.type !== activeFilter) continue;
+
           const sourceId = `public-route-${route.id}`;
 
           const features: any[] = [];
@@ -265,6 +270,7 @@ export function PublicMapCanvas({
                 notes: p.notes,
                 photos: JSON.stringify(p.photos || []),
                 type: "point",
+                pointType: (p as any).type || "single",
                 isEndpoint: i === 0 || i === route.points.length - 1,
               },
             });
@@ -287,7 +293,7 @@ export function PublicMapCanvas({
             id: `${sourceId}-points`,
             type: "circle",
             source: sourceId,
-            filter: ["all", ["==", "type", "point"], ["==", "isEndpoint", true]],
+            filter: ["all", ["==", "type", "point"], ["any", ["==", "isEndpoint", true], ["==", "pointType", "single"]]],
             paint: {
               "circle-color": "#ffffff",
               "circle-radius": 8,
@@ -300,7 +306,7 @@ export function PublicMapCanvas({
             id: `${sourceId}-labels`,
             type: "symbol",
             source: sourceId,
-            filter: ["all", ["==", "type", "point"], ["==", "isEndpoint", true]],
+            filter: ["all", ["==", "type", "point"], ["any", ["==", "isEndpoint", true], ["==", "pointType", "single"]]],
             layout: {
               "text-field": ["get", "label"],
               "text-size": 12,
@@ -367,7 +373,7 @@ export function PublicMapCanvas({
     }
 
     loadData();
-  }, [locations, selectedLocationId, clearRoutes, mapReady]);
+  }, [locations, selectedLocationId, activeFilter, clearRoutes, mapReady]);
 
   return (
     <div className="absolute inset-0 h-full w-full">

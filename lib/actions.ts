@@ -90,7 +90,7 @@ export async function addRoute(data: {
   color: string;
   lineStyle: string;
   locationId: string;
-  points: Array<{ label: string; lat: number; lng: number; notes?: string; order: number }>;
+  points: Array<{ label: string; lat: number; lng: number; notes?: string; order: number; type?: "single" | "bulk" }>;
 }) {
   await requireAdmin();
   return createRoute(data);
@@ -123,6 +123,7 @@ export async function addRoutePoint(data: {
   photos?: string[];
   order: number;
   routeId: string;
+  type?: "single" | "bulk";
 }) {
   await requireAdmin();
   return createRoutePoint(data);

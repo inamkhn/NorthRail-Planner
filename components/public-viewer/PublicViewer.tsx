@@ -10,9 +10,8 @@ type LocationWithRoutes = Awaited<ReturnType<typeof fetchLocations>>[number];
 export function PublicViewer() {
   const [locations, setLocations] = useState<LocationWithRoutes[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
-    null,
-  );
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<string>("All");
 
   useEffect(() => {
     fetchLocations().then((data) => {
@@ -32,7 +31,16 @@ export function PublicViewer() {
       <PublicTopBar
         locations={locations}
         selectedLocationId={selectedLocationId}
-        onSelectLocation={setSelectedLocationId}
+        onSelectLocation={(id) => {
+          setSelectedLocationId(id);
+          setActiveFilter("All"); // reset filter when switching location
+        }}
+        activeFilter={activeFilter}
+        onFilterChange={setActiveFilter}
+        onResetView={() => {
+          setActiveFilter("All");
+          setSelectedLocationId("");
+        }}
       />
 
       <div className="relative flex-1">
@@ -73,7 +81,7 @@ export function PublicViewer() {
             </div>
           </div>
         ) : (
-          <PublicMapCanvas locations={locations} selectedLocationId={selectedLocationId} />
+          <PublicMapCanvas locations={locations} selectedLocationId={selectedLocationId} activeFilter={activeFilter} />
         )}
       </div>
     </div>

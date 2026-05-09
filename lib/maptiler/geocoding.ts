@@ -1,5 +1,43 @@
 const API_KEY = process.env.NEXT_PUBLIC_MAPTILER_GEO_KEY || "";
 
+export type SearchResult = {
+  name: string;
+  lat: number;
+  lng: number;
+  placeName: string;
+};
+
+/**
+ * Forward-geocode a query and return up to 5 location suggestions.
+ */
+export async function searchLocations(
+  query: string,
+  limit = 5,
+): Promise<SearchResult[]> {
+  if (!query.trim() || !API_KEY) return [];
+  try {
+    const res = await fetch(
+      `https://api.maptiler.com/geocoding/${encodeURIComponent(query)}.json?key=${API_KEY}&limit=${limit}`,
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const features = data?.features ?? [];
+    return features
+      .filter((f: any) => f.geometry?.coordinates)
+      .map((f: any) => {
+        const [lng, lat] = f.geometry.coordinates;
+        return {
+          name: f.text || f.place_name || "",
+          lat,
+          lng,
+          placeName: f.place_name || "",
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Forward-geocode a city/region name and return its bounding box.
  * Returns [minLng, minLat, maxLng, maxLat] or null if not found.

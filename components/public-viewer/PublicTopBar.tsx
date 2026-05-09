@@ -15,6 +15,9 @@ interface PublicTopBarProps {
   locations: { id: string; name: string }[];
   selectedLocationId: string | null;
   onSelectLocation: (id: string) => void;
+  activeFilter: string;
+  onFilterChange: (filter: string) => void;
+  onResetView?: () => void;
 }
 
 const ROUTE_FILTERS = ["All", "HIGH SPEED", "FREIGHT", "COMMUTER", "METRO"] as const;
@@ -156,8 +159,10 @@ export function PublicTopBar({
   locations,
   selectedLocationId,
   onSelectLocation,
+  activeFilter,
+  onFilterChange,
+  onResetView,
 }: PublicTopBarProps) {
-  const [activeFilter, setActiveFilter] = useState<string>("All");
 
   return (
     <header className="flex flex-col sm:flex-row w-full items-start sm:items-center justify-between border-b border-zinc-200 bg-white px-4 sm:px-6 py-3 sm:py-0 min-h-[64px] gap-3 sm:gap-0">
@@ -181,6 +186,7 @@ export function PublicTopBar({
       <div className="flex w-full sm:w-auto items-center gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
         <button
           type="button"
+          onClick={onResetView}
           className="flex shrink-0 items-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium sm:font-semibold text-[#db2777] transition-colors hover:bg-pink-50"
         >
           <Icon name="reset" className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -195,7 +201,7 @@ export function PublicTopBar({
             <button
               key={f}
               type="button"
-              onClick={() => setActiveFilter(f)}
+              onClick={() => onFilterChange(f)}
               className={`rounded-full px-2.5 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium sm:font-semibold uppercase tracking-wide transition-all ${
                 activeFilter === f
                   ? "bg-[#db2777] text-white shadow-sm"

@@ -20,7 +20,7 @@ import {
   addOrUpdateResistanceLayers,
   applyResistanceVisibility,
   removePlannerLayers,
-  fitToRoute,
+  fitToRoutes,
   addCityBoundaryLayer,
   removeCityBoundaryLayer,
   fitToBoundary,
@@ -31,7 +31,7 @@ export type MapCanvasProps = {
   onPickLocation?: (lat: number, lng: number) => void;
   markerPosition?: { lat: number; lng: number } | null;
   onMarkerPositionChange?: (pos: { lat: number; lng: number } | null) => void;
-  activeVariant?: RouteVariantDef | null;
+  activeVariants?: RouteVariantDef[];
   resistanceVisibility?: Record<string, boolean>;
   resistanceLayers?: ResistanceLayerDef[];
   cityBoundaryGeojson?: GeoJSON.Geometry | null;
@@ -46,7 +46,7 @@ export function MapCanvas({
   onPickLocation,
   markerPosition,
   onMarkerPositionChange,
-  activeVariant,
+  activeVariants = [],
   resistanceVisibility,
   resistanceLayers,
   cityBoundaryGeojson,
@@ -63,27 +63,30 @@ export function MapCanvas({
   // ── Refs for latest prop values (read inside stable callbacks) ──────────
   const isPickingRef = useRef(isPickingLocation ?? false);
   const onPickLocationRef = useRef(onPickLocation);
-  const activeVariantRef = useRef(activeVariant);
+  const activeVariantsRef = useRef(activeVariants);
   const resistanceVisibilityRef = useRef(resistanceVisibility);
   const resistanceLayersRef = useRef(resistanceLayers);
 
   // Keep refs in sync with props on every render
   isPickingRef.current = isPickingLocation ?? false;
   onPickLocationRef.current = onPickLocation;
-  activeVariantRef.current = activeVariant;
+  activeVariantsRef.current = activeVariants;
   resistanceVisibilityRef.current = resistanceVisibility;
   resistanceLayersRef.current = resistanceLayers;
 
   // ── Stable helper: (re-)apply all GeoJSON layers ────────────────────────
   const applyLayers = useCallback((map: MapTilerMap) => {
     removePlannerLayers(map);
-    const variant = activeVariantRef.current;
+    const variants = activeVariantsRef.current;
     const layers = resistanceLayersRef.current ?? [];
     const visibility = resistanceVisibilityRef.current ?? {};
-    if (variant) {
+
+    for (const variant of variants) {
       addOrUpdateRouteLayer(map, variant);
-      // Auto-pan to show the route
-      fitToRoute(map, variant.geojson);
+    }
+
+    if (variants.length > 0) {
+      fitToRoutes(map, variants);
     }
     if (layers.length > 0) {
       addOrUpdateResistanceLayers(map, layers);
@@ -118,31 +121,17 @@ export function MapCanvas({
       if (isPickingRef.current && onPickLocationRef.current) {
         const { lat, lng } = e.lngLat;
         onPickLocationRef.current(lat, lng);
+        return;
       }
-    });
 
-    // Point layer interactivity
-    const POINTS_LAYER_ID = "planner-route-layer-points";
+      // Point layer interactivity
+      const features = map.queryRenderedFeatures(e.point);
+      const pointFeature = features.find(
+        (f) => typeof f.layer.id === "string" && f.layer.id.startsWith("planner-route-layer-") && f.layer.id.endsWith("-points")
+      );
 
-    map.on("mouseenter", POINTS_LAYER_ID, (e) => {
-      if (!e.features || e.features.length === 0) return;
-      const props = e.features[0].properties as any;
-      const hasDetails = props.label || props.notes || (props.photos && props.photos !== "[]");
-      if (hasDetails) {
-        map.getCanvas().style.cursor = "pointer";
-      }
-    });
-
-    map.on("mouseleave", POINTS_LAYER_ID, () => {
-      map.getCanvas().style.cursor = "";
-    });
-
-    map.on("click", POINTS_LAYER_ID, (e) => {
-      if (!e.features || e.features.length === 0) return;
-      const feature = e.features[0];
-      const coords = (feature.geometry as GeoJSON.Point).coordinates;
-      const props = feature.properties as any;
-
+      if (!pointFeature || !pointFeature.properties) return;
+      const props = pointFeature.properties as any;
       const hasDetails = props.label || props.notes || (props.photos && props.photos !== "[]");
       if (!hasDetails) return;
 
@@ -161,6 +150,7 @@ export function MapCanvas({
       );
 
       // We use MapTiler's popup but remove its default styling via CSS if needed
+      const coords = (pointFeature.geometry as GeoJSON.Point).coordinates;
       popupRef.current = new Popup({
         offset: 15,
         closeButton: false,
@@ -170,6 +160,70 @@ export function MapCanvas({
         .setLngLat([coords[0], coords[1]])
         .setDOMContent(popupNode)
         .addTo(map);
+    });
+
+    // ── Reset all route widths to default ──────────────────────────────────
+    function resetRouteWidths() {
+      const mapAny = map as any;
+      const allLayers = mapAny.getStyle?.()?.layers ?? [];
+      for (const layer of allLayers) {
+        const id = layer?.id as string;
+        if (!id?.startsWith("planner-route-layer-")) continue;
+        if (id.endsWith("-points") || id.endsWith("-labels") || id.endsWith("-hit")) continue;
+        if (id.endsWith("-casing")) {
+          mapAny.setPaintProperty(id, "line-width", 7);
+          mapAny.setPaintProperty(id, "line-opacity", 0.25);
+        } else {
+          mapAny.setPaintProperty(id, "line-width", 4);
+        }
+      }
+    }
+
+    map.on("mousemove", (e) => {
+      const features = map.queryRenderedFeatures(e.point);
+      const mapAny = map as any;
+
+      resetRouteWidths();
+
+      // Check if hovering a route via the invisible wide hit layer
+      const hitFeature = features.find((f) => {
+        const id = f.layer.id as string;
+        return id.startsWith("planner-route-layer-") && id.endsWith("-hit");
+      });
+
+      if (hitFeature) {
+        const layerId = (hitFeature.layer.id as string).replace("-hit", "");
+        const casingId = `${layerId}-casing`;
+        mapAny.setPaintProperty(layerId, "line-width", 6);
+        if (mapAny.getLayer?.(casingId)) {
+          mapAny.setPaintProperty(casingId, "line-width", 10);
+          mapAny.setPaintProperty(casingId, "line-opacity", 0.5);
+        }
+        map.getCanvas().style.cursor = "pointer";
+        return;
+      }
+
+      // Point layer interactivity
+      const pointFeature = features.find(
+        (f) =>
+          typeof f.layer.id === "string" &&
+          f.layer.id.startsWith("planner-route-layer-") &&
+          f.layer.id.endsWith("-points"),
+      );
+
+      if (pointFeature && pointFeature.properties) {
+        const props = pointFeature.properties as any;
+        const hasDetails =
+          props.label || props.notes || (props.photos && props.photos !== "[]");
+        map.getCanvas().style.cursor = hasDetails ? "pointer" : "";
+      } else {
+        map.getCanvas().style.cursor = "";
+      }
+    });
+
+    map.on("mouseleave", () => {
+      resetRouteWidths();
+      map.getCanvas().style.cursor = "";
     });
 
     return () => {
@@ -199,7 +253,7 @@ export function MapCanvas({
       // Queue: apply once the style finishes loading
       map.once("style.load", () => applyLayers(map));
     }
-  }, [activeVariant, resistanceVisibility, resistanceLayers, applyLayers]);
+  }, [activeVariants, resistanceVisibility, resistanceLayers, applyLayers]);
 
   // ── City boundary layer ──────────────────────────────────────────────────
   useEffect(() => {
@@ -209,7 +263,11 @@ export function MapCanvas({
     const apply = () => {
       if (cityBoundaryGeojson) {
         addCityBoundaryLayer(map, cityBoundaryGeojson);
-        fitToBoundary(map, cityBoundaryGeojson);
+        // Only pan to city boundary if no routes are visible yet
+        // (routes take priority for map positioning)
+        if (activeVariantsRef.current.length === 0) {
+          fitToBoundary(map, cityBoundaryGeojson);
+        }
       } else {
         removeCityBoundaryLayer(map);
       }

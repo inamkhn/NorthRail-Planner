@@ -27,13 +27,16 @@ export function addOrUpdateRouteLayer(map: MapTilerMap, variant: RouteVariantDef
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapAny = map as any;
 
-  if (!hasSource(map, IDS.routeSource)) {
-    mapAny.addSource(IDS.routeSource, {
+  const sourceId = `planner-route-source-${variant.id}`;
+  const layerId = `planner-route-layer-${variant.id}`;
+
+  if (!hasSource(map, sourceId)) {
+    mapAny.addSource(sourceId, {
       type: "geojson",
       data: variant.geojson,
     });
   } else {
-    mapAny.getSource(IDS.routeSource)?.setData?.(variant.geojson);
+    mapAny.getSource(sourceId)?.setData?.(variant.geojson);
   }
 
   let dasharray: number[] | undefined;
@@ -41,11 +44,41 @@ export function addOrUpdateRouteLayer(map: MapTilerMap, variant: RouteVariantDef
   else if (variant.lineStyle === "DOTTED") dasharray = [1, 2];
   else if (variant.lineStyle === "DASH-DOT") dasharray = [4, 2, 1, 2];
 
-  if (!hasLayer(map, IDS.routeLayer)) {
+  // Casing layer (drawn behind main line for bold border effect)
+  const casingLayerId = `${layerId}-casing`;
+  if (!hasLayer(map, casingLayerId)) {
+    mapAny.addLayer(
+      {
+        id: casingLayerId,
+        type: "line",
+        source: sourceId,
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": variant.color,
+          "line-width": 7,
+          "line-opacity": 0.25,
+          ...(dasharray ? { "line-dasharray": dasharray } : {}),
+        },
+      },
+      hasLayer(map, layerId) ? layerId : undefined,
+    );
+  } else {
+    mapAny.setPaintProperty(casingLayerId, "line-color", variant.color);
+    if (dasharray) {
+      mapAny.setPaintProperty(casingLayerId, "line-dasharray", dasharray);
+    } else {
+      mapAny.setPaintProperty(casingLayerId, "line-dasharray", undefined);
+    }
+  }
+
+  if (!hasLayer(map, layerId)) {
     mapAny.addLayer({
-      id: IDS.routeLayer,
+      id: layerId,
       type: "line",
-      source: IDS.routeSource,
+      source: sourceId,
       layout: {
         "line-join": "round",
         "line-cap": "round",
@@ -58,21 +91,21 @@ export function addOrUpdateRouteLayer(map: MapTilerMap, variant: RouteVariantDef
       },
     });
   } else {
-    mapAny.setPaintProperty(IDS.routeLayer, "line-color", variant.color);
+    mapAny.setPaintProperty(layerId, "line-color", variant.color);
     if (dasharray) {
-      mapAny.setPaintProperty(IDS.routeLayer, "line-dasharray", dasharray);
+      mapAny.setPaintProperty(layerId, "line-dasharray", dasharray);
     } else {
-      mapAny.setPaintProperty(IDS.routeLayer, "line-dasharray", undefined);
+      mapAny.setPaintProperty(layerId, "line-dasharray", undefined);
     }
   }
 
-  const pointsLayerId = `${IDS.routeLayer}-points`;
+  const pointsLayerId = `${layerId}-points`;
   if (!hasLayer(map, pointsLayerId)) {
     mapAny.addLayer({
       id: pointsLayerId,
       type: "circle",
-      source: IDS.routeSource,
-      filter: ["all", ["==", "$type", "Point"], ["==", "isEndpoint", true]],
+      source: sourceId,
+      filter: ["all", ["==", "$type", "Point"], ["any", ["==", "isEndpoint", true], ["==", "pointType", "single"]]],
       paint: {
         "circle-radius": 5,
         "circle-color": "#ffffff",
@@ -84,13 +117,13 @@ export function addOrUpdateRouteLayer(map: MapTilerMap, variant: RouteVariantDef
     mapAny.setPaintProperty(pointsLayerId, "circle-stroke-color", variant.color);
   }
 
-  const labelsLayerId = `${IDS.routeLayer}-labels`;
+  const labelsLayerId = `${layerId}-labels`;
   if (!hasLayer(map, labelsLayerId)) {
     mapAny.addLayer({
       id: labelsLayerId,
       type: "symbol",
-      source: IDS.routeSource,
-      filter: ["all", ["==", "$type", "Point"], ["==", "isEndpoint", true]],
+      source: sourceId,
+      filter: ["all", ["==", "$type", "Point"], ["any", ["==", "isEndpoint", true], ["==", "pointType", "single"]]],
       layout: {
         "text-field": ["get", "label"],
         "text-size": 12,
@@ -101,6 +134,25 @@ export function addOrUpdateRouteLayer(map: MapTilerMap, variant: RouteVariantDef
         "text-color": "#111111",
         "text-halo-color": "#ffffff",
         "text-halo-width": 2,
+      },
+    });
+  }
+
+  // Invisible hit layer for wider hover zone
+  const hitLayerId = `${layerId}-hit`;
+  if (!hasLayer(map, hitLayerId)) {
+    mapAny.addLayer({
+      id: hitLayerId,
+      type: "line",
+      source: sourceId,
+      layout: {
+        "line-join": "round",
+        "line-cap": "round",
+      },
+      paint: {
+        "line-color": "#000",
+        "line-width": 12,
+        "line-opacity": 0,
       },
     });
   }
@@ -156,25 +208,31 @@ export function applyResistanceVisibility(
   }
 }
 
-export function fitToRoute(
+export function fitToRoutes(
   map: MapTilerMap,
-  route: GeoJSON.FeatureCollection<GeoJSON.Geometry>,
+  variants: RouteVariantDef[],
 ) {
-  const lineStringFeature = route.features.find(f => f.geometry.type === "LineString") as GeoJSON.Feature<GeoJSON.LineString> | undefined;
-  const coords = lineStringFeature?.geometry?.coordinates ?? [];
-  if (coords.length === 0) return;
+  let minLng = Infinity;
+  let maxLng = -Infinity;
+  let minLat = Infinity;
+  let maxLat = -Infinity;
 
-  let minLng = coords[0][0];
-  let maxLng = coords[0][0];
-  let minLat = coords[0][1];
-  let maxLat = coords[0][1];
+  let hasCoords = false;
 
-  for (const [lng, lat] of coords) {
-    minLng = Math.min(minLng, lng);
-    maxLng = Math.max(maxLng, lng);
-    minLat = Math.min(minLat, lat);
-    maxLat = Math.max(maxLat, lat);
+  for (const variant of variants) {
+    const lineStringFeature = variant.geojson.features.find(f => f.geometry.type === "LineString") as GeoJSON.Feature<GeoJSON.LineString> | undefined;
+    const coords = lineStringFeature?.geometry?.coordinates ?? [];
+    
+    for (const [lng, lat] of coords) {
+      hasCoords = true;
+      minLng = Math.min(minLng, lng);
+      maxLng = Math.max(maxLng, lng);
+      minLat = Math.min(minLat, lat);
+      maxLat = Math.max(maxLat, lat);
+    }
   }
+
+  if (!hasCoords) return;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (map as any).fitBounds?.(
@@ -186,6 +244,13 @@ export function fitToRoute(
   );
 }
 
+export function fitToRoute(
+  map: MapTilerMap,
+  route: GeoJSON.FeatureCollection<GeoJSON.Geometry>,
+) {
+  fitToRoutes(map, [{ geojson: route } as RouteVariantDef]);
+}
+
 export function removePlannerLayers(map: MapTilerMap) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapAny = map as any;
@@ -194,15 +259,22 @@ export function removePlannerLayers(map: MapTilerMap) {
   for (const layer of layers) {
     const id = layer?.id as string | undefined;
     if (!id) continue;
-    if (id === IDS.routeLayer || id === `${IDS.routeLayer}-points` || id === `${IDS.routeLayer}-labels` || id.startsWith(IDS.resistanceLayerPrefix)) {
+    if (id.startsWith("planner-route-layer-") || id.startsWith(IDS.resistanceLayerPrefix)) {
       if (hasLayer(map, id)) mapAny.removeLayer(id);
+    }
+  }
+  
+  const sources = Object.keys(mapAny.getStyle?.()?.sources ?? {});
+  for (const source of sources) {
+    if (source.startsWith("planner-route-source-")) {
+      if (hasSource(map, source)) mapAny.removeSource(source);
     }
   }
 
   if (hasSource(map, IDS.routeSource)) mapAny.removeSource(IDS.routeSource);
 
-  const sources = mapAny.getStyle?.()?.sources ?? {};
-  for (const sourceId of Object.keys(sources)) {
+  const allSources = mapAny.getStyle?.()?.sources ?? {};
+  for (const sourceId of Object.keys(allSources)) {
     if (sourceId.startsWith(IDS.resistanceSourcePrefix) && hasSource(map, sourceId)) {
       mapAny.removeSource(sourceId);
     }

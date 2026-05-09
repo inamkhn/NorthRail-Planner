@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import type { Location, LocationType } from "@/lib/planner/locations";
 import { LocationIcon } from "@/public/icons/leftPanel/location";
-import { LocationDetailCard } from "./LocationDetailCard";
 
 export type LocationsListProps = {
   locations: Location[];
@@ -22,9 +21,11 @@ const typeLabels: Record<LocationType, string> = {
 function LocationCard({
   location,
   onClick,
+  onDelete,
 }: {
   location: Location;
   onClick: () => void;
+  onDelete: () => void;
 }) {
   return (
     <div
@@ -51,15 +52,19 @@ function LocationCard({
                 {typeLabels[location.type]}
               </p>
             </div>
-            <button
-              type="button"
-              className="rounded-lg p-1.5 text-zinc-400 opacity-0 transition-all hover:bg-zinc-100 hover:text-zinc-600 group-hover:opacity-100"
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-            >
-              <Icon name="moreVertical" className="h-4 w-4" />
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                className="rounded-lg p-1.5 text-zinc-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                title="Delete Location"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+              >
+                <Icon name="trash" className="h-4 w-4" />
+              </button>
+            </div>
           </div>
           <div className="mt-1.5 sm:mt-2 flex flex-wrap gap-1.5 sm:gap-2">
             {location.tags.map((tag, idx) => (
@@ -89,10 +94,6 @@ export function LocationsList({
   onAddNew,
   onDeleteLocation,
 }: LocationsListProps) {
-  const [detailLocationId, setDetailLocationId] = useState<string | null>(null);
-  const detailLocation =
-    locations.find((l) => l.id === detailLocationId) ?? null;
-
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -113,7 +114,8 @@ export function LocationsList({
           <LocationCard
             key={location.id}
             location={location}
-            onClick={() => setDetailLocationId(location.id)}
+            onClick={() => onSelectLocation(location.id)}
+            onDelete={() => onDeleteLocation(location.id)}
           />
         ))}
       </div>
@@ -129,24 +131,6 @@ export function LocationsList({
           Mark New Location
         </button>
       </div>
-
-      {/* Click Detail Card */}
-      {detailLocation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 sm:absolute sm:inset-auto sm:left-[320px] sm:top-1/2 sm:-translate-y-1/2 sm:bg-transparent">
-          <LocationDetailCard
-            location={detailLocation}
-            onClose={() => setDetailLocationId(null)}
-            onEdit={() => {
-              onSelectLocation(detailLocation.id);
-              setDetailLocationId(null);
-            }}
-            onDelete={() => {
-              onDeleteLocation(detailLocation.id);
-              setDetailLocationId(null);
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 }

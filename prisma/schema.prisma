@@ -60,6 +60,7 @@ model RoutePoint {
   lng     Float
   notes   String?
   photos  String[]
+  type    String   @default("single")
   order   Int
   routeId String
   route   Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)

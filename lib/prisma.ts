@@ -85,7 +85,7 @@ export async function createRoute(data: {
   color: string;
   lineStyle: string;
   locationId: string;
-  points: Array<{ label: string; lat: number; lng: number; notes?: string; order: number }>;
+  points: Array<{ label: string; lat: number; lng: number; notes?: string; order: number; type?: "single" | "bulk" }>;
 }) {
   const { points, ...routeData } = data;
   return prisma.route.create({
@@ -125,6 +125,7 @@ export async function createRoutePoint(data: {
   photos?: string[];
   order: number;
   routeId: string;
+  type?: "single" | "bulk";
 }) {
   return prisma.routePoint.create({ data });
 }

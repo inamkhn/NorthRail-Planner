@@ -31,7 +31,8 @@ export type LeftPanelProps = {
     lineStyle: string;
     points: { lat: number; lng: number; label: string }[];
   }) => void;
-  onViewRoute?: (routeId: string) => void;
+  onToggleRouteVisibility?: (routeId: string) => void;
+  visibleRouteIds?: Set<string>;
   onDeleteRoute?: (routeId: string) => void;
   onChangeDraftRoute?: (route: any) => void;
   draftLat?: number;
@@ -48,7 +49,8 @@ export function LeftPanel({
   onDeleteLocation,
   onPickOnMap,
   onSaveRoute,
-  onViewRoute,
+  onToggleRouteVisibility,
+  visibleRouteIds,
   onDeleteRoute,
   onChangeDraftRoute,
   draftLat,
@@ -77,7 +79,8 @@ export function LeftPanel({
           location={selectedLocation}
           onBack={() => onChangeView("list")}
           onCreateRoute={() => onChangeView("create-route")}
-          onViewRoute={onViewRoute ?? (() => {})}
+          onToggleRouteVisibility={onToggleRouteVisibility ?? (() => {})}
+          visibleRouteIds={visibleRouteIds ?? new Set()}
           onDeleteRoute={onDeleteRoute ?? (() => {})}
         />
       </aside>

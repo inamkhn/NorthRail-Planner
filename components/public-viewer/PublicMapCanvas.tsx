@@ -31,6 +31,7 @@ export function PublicMapCanvas({
   );
   const [mapReady, setMapReady] = useState(false);
   const popupRef = useRef<Popup | null>(null);
+  const prevSelectedIdRef = useRef<string | null>(null);
 
   // Set API key once
   useEffect(() => {
@@ -398,52 +399,57 @@ export function PublicMapCanvas({
         }
       }
 
-      // 2. Fetch and zoom to boundary if a location is selected
+      // 2. Fetch and zoom to boundary only when selected location changes
       const sourceId = "public-city-boundary";
-      if (selectedLocationId) {
-        const selectedLoc = locations.find((l) => l.id === selectedLocationId);
-        if (selectedLoc) {
-          const boundary = await fetchCityBoundary(selectedLoc.name);
-          if (boundary && boundary.geojson && map) {
-            if (!mapAny.getSource(sourceId)) {
-              mapAny.addSource(sourceId, {
-                type: "geojson",
-                data: boundary.geojson,
-              });
-              mapAny.addLayer({
-                id: sourceId + "-fill",
-                type: "fill",
-                source: sourceId,
-                paint: { "fill-color": "#3b82f6", "fill-opacity": 0.05 },
-              });
-              mapAny.addLayer({
-                id: sourceId + "-line",
-                type: "line",
-                source: sourceId,
-                paint: {
-                  "line-color": "#3b82f6",
-                  "line-width": 2,
-                  "line-opacity": 0.5,
-                },
-              });
-            } else {
-              mapAny.getSource(sourceId).setData(boundary.geojson);
-            }
-            fitToBoundary(map, boundary.geojson);
-          }
-        }
-      } else {
-        // Remove boundary if "All Locations" is selected
-        if (mapAny.getSource(sourceId)) {
-          if (mapAny.getLayer(sourceId + "-fill"))
-            mapAny.removeLayer(sourceId + "-fill");
-          if (mapAny.getLayer(sourceId + "-line"))
-            mapAny.removeLayer(sourceId + "-line");
-          mapAny.removeSource(sourceId);
-        }
+      const prevId = prevSelectedIdRef.current;
+      prevSelectedIdRef.current = selectedLocationId;
 
-        // If "All Locations" is selected, we could fly to a global view
-        map.flyTo({ center: [10.2, 52.75], zoom: 5 });
+      if (prevId !== selectedLocationId) {
+        if (selectedLocationId) {
+          const selectedLoc = locations.find((l) => l.id === selectedLocationId);
+          if (selectedLoc) {
+            const boundary = await fetchCityBoundary(selectedLoc.name);
+            if (boundary && boundary.geojson && map) {
+              if (!mapAny.getSource(sourceId)) {
+                mapAny.addSource(sourceId, {
+                  type: "geojson",
+                  data: boundary.geojson,
+                });
+                mapAny.addLayer({
+                  id: sourceId + "-fill",
+                  type: "fill",
+                  source: sourceId,
+                  paint: { "fill-color": "#3b82f6", "fill-opacity": 0.05 },
+                });
+                mapAny.addLayer({
+                  id: sourceId + "-line",
+                  type: "line",
+                  source: sourceId,
+                  paint: {
+                    "line-color": "#3b82f6",
+                    "line-width": 2,
+                    "line-opacity": 0.5,
+                  },
+                });
+              } else {
+                mapAny.getSource(sourceId).setData(boundary.geojson);
+              }
+              fitToBoundary(map, boundary.geojson);
+            }
+          }
+        } else {
+          // Remove boundary if "All Locations" is selected
+          if (mapAny.getSource(sourceId)) {
+            if (mapAny.getLayer(sourceId + "-fill"))
+              mapAny.removeLayer(sourceId + "-fill");
+            if (mapAny.getLayer(sourceId + "-line"))
+              mapAny.removeLayer(sourceId + "-line");
+            mapAny.removeSource(sourceId);
+          }
+
+          // If "All Locations" is selected, fly to a global view
+          map.flyTo({ center: [10.2, 52.75], zoom: 5 });
+        }
       }
     }
 

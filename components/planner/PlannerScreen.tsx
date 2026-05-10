@@ -80,50 +80,51 @@ export function PlannerScreen() {
   }, [locations]);
 
   // ── Active variant for map rendering ─────────────────────────────────────
-  let activeVariantsToRender: RouteVariantDef[] = [];
-
-  if (view === "create-route" && draftRoute) {
-    const features: GeoJSON.Feature<GeoJSON.Geometry>[] = [];
-    draftRoute.points.forEach((p, idx) => {
-      features.push({
-        type: "Feature",
-        geometry: { type: "Point", coordinates: [p.lng, p.lat] },
-        properties: {
-          label: p.label,
-          notes: p.notes,
-          photos: p.photos ? JSON.stringify(p.photos) : undefined,
-          pointType: (p as any).type || "single",
-          isEndpoint: idx === 0 || idx === draftRoute.points.length - 1,
-        },
+  const activeVariantsToRender = useMemo<RouteVariantDef[]>(() => {
+    if (view === "create-route" && draftRoute) {
+      const features: GeoJSON.Feature<GeoJSON.Geometry>[] = [];
+      draftRoute.points.forEach((p, idx) => {
+        features.push({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+          properties: {
+            label: p.label,
+            notes: p.notes,
+            photos: p.photos ? JSON.stringify(p.photos) : undefined,
+            pointType: (p as any).type || "single",
+            isEndpoint: idx === 0 || idx === draftRoute.points.length - 1,
+          },
+        });
       });
-    });
-    if (draftRoute.points.length >= 2) {
-      features.push({
-        type: "Feature",
-        geometry: {
-          type: "LineString",
-          coordinates: draftRoute.points.map((p) => [p.lng, p.lat]),
-        },
-        properties: {},
-      });
+      if (draftRoute.points.length >= 2) {
+        features.push({
+          type: "Feature",
+          geometry: {
+            type: "LineString",
+            coordinates: draftRoute.points.map((p) => [p.lng, p.lat]),
+          },
+          properties: {},
+        });
+      }
+      return [{
+        id: "draft-route",
+        group: "preferred",
+        shortLabel: "DRAFT",
+        title: draftRoute.name || "Draft Route",
+        color: draftRoute.color,
+        lineStyle: draftRoute.lineStyle,
+        geojson: { type: "FeatureCollection", features },
+      }];
     }
-    activeVariantsToRender = [{
-      id: "draft-route",
-      group: "preferred",
-      shortLabel: "DRAFT",
-      title: draftRoute.name || "Draft Route",
-      color: draftRoute.color,
-      lineStyle: draftRoute.lineStyle,
-      geojson: { type: "FeatureCollection", features },
-    }];
-  } else {
+
+    const out: RouteVariantDef[] = [];
     for (const routeId of Array.from(visibleRouteIds)) {
       if (loadedRoutes[routeId]) {
-        activeVariantsToRender.push(loadedRoutes[routeId]);
+        out.push(loadedRoutes[routeId]);
       }
     }
-  }
-  // No active variant → map shows empty (user hasn't started creating or viewing yet)
+    return out;
+  }, [view, draftRoute, visibleRouteIds, loadedRoutes]);
 
   // ── Load locations from DB on mount ──────────────────────────────────────
   useEffect(() => {
@@ -276,11 +277,55 @@ export function PlannerScreen() {
     }) => {
       if (!selectedLocationId) return;
       try {
-        await addRouteDb({
+        const newDbRoute = await addRouteDb({
           ...route,
           locationId: selectedLocationId,
           points: route.points.map((p, i) => ({ ...p, order: i })),
         });
+
+        // Build variant from saved route so it appears on map immediately
+        const features: GeoJSON.Feature<GeoJSON.Geometry>[] = [];
+        for (let i = 0; i < newDbRoute.points.length; i++) {
+          const p = newDbRoute.points[i];
+          features.push({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+            properties: {
+              label: p.label,
+              notes: p.notes,
+              photos: (p as any).photos ? JSON.stringify((p as any).photos) : undefined,
+              pointType: (p as any).type || "single",
+              isEndpoint: i === 0 || i === newDbRoute.points.length - 1,
+            },
+          });
+        }
+        if (newDbRoute.points.length >= 2) {
+          features.push({
+            type: "Feature",
+            geometry: {
+              type: "LineString",
+              coordinates: newDbRoute.points.map((p: { lng: number; lat: number }) => [p.lng, p.lat]),
+            },
+            properties: {},
+          });
+        }
+        const variant: RouteVariantDef = {
+          id: newDbRoute.id,
+          group: "preferred",
+          shortLabel: newDbRoute.name,
+          title: newDbRoute.name,
+          color: newDbRoute.color,
+          lineStyle: newDbRoute.lineStyle,
+          geojson: { type: "FeatureCollection", features },
+        };
+
+        setLoadedRoutes((prev) => ({ ...prev, [newDbRoute.id]: variant }));
+        setVisibleRouteIds((prev) => {
+          const next = new Set(prev);
+          next.add(newDbRoute.id);
+          return next;
+        });
+
         const dbLocations = await fetchLocations();
         setLocations(dbLocations.map(mapDbLocation));
         setDraftRoute(null);

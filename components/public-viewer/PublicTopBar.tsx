@@ -3,12 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/Icon";
-import {
-  SignInButton,
-  UserButton,
-  useUser,
-  useAuth,
-} from "@clerk/nextjs";
+import { SignInButton, UserButton, useUser, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 
 interface PublicTopBarProps {
@@ -20,7 +15,20 @@ interface PublicTopBarProps {
   onResetView?: () => void;
 }
 
-const ROUTE_FILTERS = ["All", "HIGH SPEED", "FREIGHT", "COMMUTER", "METRO"] as const;
+const ROUTE_FILTERS = [
+  "All",
+  "HIGH SPEED",
+  "FREIGHT",
+  "COMMUTER",
+  "METRO",
+] as const;
+
+const ROUTE_TYPE_COLORS: Record<string, string> = {
+  "HIGH SPEED": "#E91E63",
+  FREIGHT: "#FF9800",
+  COMMUTER: "#2196F3",
+  METRO: "#9C27B0",
+};
 
 function AuthSection() {
   const { isSignedIn } = useAuth();
@@ -105,52 +113,70 @@ function LocationDropdown({
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1.5 sm:gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
       >
-        <Icon name="marker" className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-zinc-400" />
+        <Icon
+          name="marker"
+          className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-zinc-400"
+        />
         <span className="max-w-[100px] sm:max-w-[120px] truncate">
           {selected ? selected.name : "All Locations"}
         </span>
-        <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-zinc-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+        <svg
+          className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-zinc-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
       </button>
 
-      {open && rect && typeof document !== "undefined" && createPortal(
-        <div
-          ref={dropdownRef}
-          style={{ top: rect.top + 8, left: Math.max(16, rect.right - 224) }}
-          className="fixed z-[100] w-56 rounded-xl border border-zinc-100 bg-white p-1.5 shadow-xl ring-1 ring-black/5"
-        >
-          <button
-            onClick={() => {
-              onSelectLocation("");
-              setOpen(false);
-            }}
-            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-              !selectedLocationId
-                ? "bg-[#db2777]/10 font-medium text-[#be185d]"
-                : "text-zinc-600 hover:bg-zinc-50"
-            }`}
+      {open &&
+        rect &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={{ top: rect.top + 8, left: Math.max(16, rect.right - 224) }}
+            className="fixed z-[100] w-56 rounded-xl border border-zinc-100 bg-white p-1.5 shadow-xl ring-1 ring-black/5"
           >
-            All Locations
-          </button>
-          {locations.map((loc) => (
             <button
-              key={loc.id}
               onClick={() => {
-                onSelectLocation(loc.id);
+                onSelectLocation("");
                 setOpen(false);
               }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                selectedLocationId === loc.id
+                !selectedLocationId
                   ? "bg-[#db2777]/10 font-medium text-[#be185d]"
                   : "text-zinc-600 hover:bg-zinc-50"
               }`}
             >
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#db2777]" />
-              {loc.name}
+              All Locations
             </button>
-          ))}
-        </div>,
-        document.body
-      )}
+            {locations.map((loc) => (
+              <button
+                key={loc.id}
+                onClick={() => {
+                  onSelectLocation(loc.id);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                  selectedLocationId === loc.id
+                    ? "bg-[#db2777]/10 font-medium text-[#be185d]"
+                    : "text-zinc-600 hover:bg-zinc-50"
+                }`}
+              >
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#db2777]" />
+                {loc.name}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
@@ -163,14 +189,16 @@ export function PublicTopBar({
   onFilterChange,
   onResetView,
 }: PublicTopBarProps) {
-
   return (
     <header className="flex flex-col sm:flex-row w-full items-start sm:items-center justify-between border-b border-zinc-200 bg-white px-4 sm:px-6 py-3 sm:py-0 min-h-[64px] gap-3 sm:gap-0">
       {/* Left side: Logo & Title (Always visible at top on mobile) */}
       <div className="flex w-full items-center justify-between sm:w-auto">
         <div className="flex items-center gap-2.5 sm:gap-3">
           <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-[#db2777]">
-            <Icon name="route" className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
+            <Icon
+              name="route"
+              className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white"
+            />
           </div>
           <h1 className="text-base sm:text-xl font-semibold sm:font-bold tracking-tight text-zinc-900">
             NorthRail Planner
@@ -197,20 +225,39 @@ export function PublicTopBar({
 
         {/* Route Type Pills */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {ROUTE_FILTERS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => onFilterChange(f)}
-              className={`rounded-full px-2.5 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium sm:font-semibold uppercase tracking-wide transition-all ${
-                activeFilter === f
-                  ? "bg-[#db2777] text-white shadow-sm"
-                  : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
+          {ROUTE_FILTERS.map((f) => {
+            const typeColor = ROUTE_TYPE_COLORS[f];
+            const isActive = activeFilter === f;
+            return (
+              <button
+                key={f}
+                type="button"
+                onClick={() => onFilterChange(f)}
+                className={`flex items-center gap-1.5 rounded-full px-2.5 sm:px-3 py-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                  isActive
+                    ? typeColor
+                      ? "text-white shadow-sm"
+                      : "bg-zinc-800 text-white shadow-sm"
+                    : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700"
+                }`}
+                style={
+                  isActive && typeColor ? { backgroundColor: typeColor } : {}
+                }
+              >
+                {typeColor && (
+                  <span
+                    className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{
+                      backgroundColor: isActive
+                        ? "rgba(255,255,255,0.8)"
+                        : typeColor,
+                    }}
+                  />
+                )}
+                {f}
+              </button>
+            );
+          })}
         </div>
 
         <div className="hidden sm:block h-6 w-px bg-zinc-200 shrink-0" />
@@ -218,11 +265,10 @@ export function PublicTopBar({
         {/* Location Dropdown */}
         <div className="shrink-0">
           <LocationDropdown
-          locations={locations}
-          selectedLocationId={selectedLocationId}
-          onSelectLocation={onSelectLocation}
-        />
-
+            locations={locations}
+            selectedLocationId={selectedLocationId}
+            onSelectLocation={onSelectLocation}
+          />
         </div>
 
         <div className="hidden sm:block h-6 w-px bg-zinc-200 shrink-0" />

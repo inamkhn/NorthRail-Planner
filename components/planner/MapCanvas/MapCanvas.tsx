@@ -66,6 +66,7 @@ export function MapCanvas({
   const activeVariantsRef = useRef(activeVariants);
   const resistanceVisibilityRef = useRef(resistanceVisibility);
   const resistanceLayersRef = useRef(resistanceLayers);
+  const applyLayersTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep refs in sync with props on every render
   isPickingRef.current = isPickingLocation ?? false;
@@ -227,6 +228,10 @@ export function MapCanvas({
     });
 
     return () => {
+      if (applyLayersTimeoutRef.current) {
+        clearTimeout(applyLayersTimeoutRef.current);
+        applyLayersTimeoutRef.current = null;
+      }
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -246,13 +251,20 @@ export function MapCanvas({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((map as any).isStyleLoaded?.()) {
-      applyLayers(map);
-    } else {
-      // Queue: apply once the style finishes loading
-      map.once("style.load", () => applyLayers(map));
+
+    if (applyLayersTimeoutRef.current) {
+      clearTimeout(applyLayersTimeoutRef.current);
     }
+
+    applyLayersTimeoutRef.current = setTimeout(() => {
+      applyLayersTimeoutRef.current = null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((map as any).isStyleLoaded?.()) {
+        applyLayers(map);
+      } else {
+        map.once("style.load", () => applyLayers(map));
+      }
+    }, 100);
   }, [activeVariants, resistanceVisibility, resistanceLayers, applyLayers]);
 
   // ── City boundary layer ──────────────────────────────────────────────────

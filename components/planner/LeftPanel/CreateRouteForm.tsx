@@ -31,16 +31,12 @@ export type CreateRouteFormProps = {
 };
 
 const ROUTE_TYPES = ["HIGH SPEED", "FREIGHT", "COMMUTER", "METRO"] as const;
-const COLORS = [
-  "#E91E63",
-  "#2196F3",
-  "#4CAF50",
-  "#FF9800",
-  "#212121",
-  "#9C27B0",
-  "#F44336",
-  "#00BCD4",
-];
+const ROUTE_TYPE_COLORS: Record<string, string> = {
+  "HIGH SPEED": "#E91E63",
+  "FREIGHT":    "#FF9800",
+  "COMMUTER":   "#2196F3",
+  "METRO":      "#9C27B0",
+};
 const LINE_STYLES = ["SOLID", "DASHED", "DOTTED", "DASH-DOT"] as const;
 
 // Add Coordinate Point Side Panel Component
@@ -73,12 +69,19 @@ function AddPointPanel({
   const [lng, setLng] = useState("");
   const [notes, setNotes] = useState("");
   const [singlePhotos, setSinglePhotos] = useState<string[]>([]);
-  const [bulkPhotos, setBulkPhotos] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [addDetails, setAddDetails] = useState(false);
-  const [endpointType, setEndpointType] = useState<"start" | "end">("start");
   const [bulkText, setBulkText] = useState("");
+  const [endpointType, setEndpointType] = useState<"start" | "end">("start");
+
+  // Separate details for start and end points in bulk mode
+  const [startLabel, setStartLabel] = useState("");
+  const [startNotes, setStartNotes] = useState("");
+  const [startPhotos, setStartPhotos] = useState<string[]>([]);
+  const [endLabel, setEndLabel] = useState("");
+  const [endNotes, setEndNotes] = useState("");
+  const [endPhotos, setEndPhotos] = useState<string[]>([]);
 
   const lastProcessedRef = useRef<{lat: number | null, lng: number | null}>({lat: null, lng: null});
 
@@ -129,7 +132,6 @@ function AddPointPanel({
         setSinglePhotos([]);
         setAddDetails(false);
         setEndpointType("start");
-        onClose();
       }
     } else {
       const lines = bulkText.split("\n");
@@ -148,33 +150,44 @@ function AddPointPanel({
       }
 
       if (addDetails && newPoints.length > 0) {
-        let finalLabel = "";
-        if (label) {
-          finalLabel = `${endpointType === "start" ? "Start" : "End"}: ${label}`;
+        if (startLabel || startNotes || startPhotos.length > 0) {
+          newPoints[0] = {
+            ...newPoints[0],
+            label: startLabel ? `Start: ${startLabel}` : "",
+            notes: startNotes,
+            photos: startPhotos,
+          };
         }
-        const targetIndex = endpointType === "start" ? 0 : newPoints.length - 1;
-        newPoints[targetIndex] = {
-          ...newPoints[targetIndex],
-          label: finalLabel,
-          notes: notes,
-          photos: bulkPhotos,
-        };
+        if (endLabel || endNotes || endPhotos.length > 0) {
+          const lastIdx = newPoints.length - 1;
+          newPoints[lastIdx] = {
+            ...newPoints[lastIdx],
+            label: endLabel ? `End: ${endLabel}` : "",
+            notes: endNotes,
+            photos: endPhotos,
+          };
+        }
       }
 
       if (newPoints.length > 0) {
         onSave(newPoints);
         setBulkText("");
-        setLabel("");
-        setNotes("");
-        setBulkPhotos([]);
+        setStartLabel("");
+        setStartNotes("");
+        setStartPhotos([]);
+        setEndLabel("");
+        setEndNotes("");
+        setEndPhotos([]);
         setAddDetails(false);
         setEndpointType("start");
-        onClose();
       }
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    target: "single" | "start" | "end" = "single",
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -186,10 +199,12 @@ function AddPointPanel({
       // but since it's a server action, it works directly.
       const { uploadRoutePhoto } = await import("@/lib/actions");
       const url = await uploadRoutePhoto(formData);
-      if (mode === "single") {
+      if (target === "single") {
         setSinglePhotos((prev) => [...prev, url]);
+      } else if (target === "start") {
+        setStartPhotos((prev) => [...prev, url]);
       } else {
-        setBulkPhotos((prev) => [...prev, url]);
+        setEndPhotos((prev) => [...prev, url]);
       }
     } catch (error) {
       console.error("Upload failed:", error);
@@ -329,36 +344,8 @@ function AddPointPanel({
           </>
         )}
 
-        {(mode === "single" || addDetails) && (
+        {mode === "single" && (
           <>
-            {/* Point Role */}
-            {mode === "bulk" && (
-              <div className="mb-6">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-[#db2777]" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-[#db2777]">
-                    Endpoint Type
-                  </span>
-                </div>
-                <div className="flex rounded-lg border border-zinc-200 bg-zinc-50 p-1">
-                  <button
-                    type="button"
-                    onClick={() => setEndpointType("start")}
-                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${endpointType === "start" ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200" : "text-zinc-500 hover:text-zinc-700"}`}
-                  >
-                    Starting Point
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEndpointType("end")}
-                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${endpointType === "end" ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200" : "text-zinc-500 hover:text-zinc-700"}`}
-                  >
-                    Ending Point
-                  </button>
-                </div>
-              </div>
-            )}
-
             <div className="mb-6">
               <label className="mb-1.5 block text-xs font-medium text-zinc-500">
                 POINT LABEL
@@ -403,35 +390,26 @@ function AddPointPanel({
                 </span>
               </div>
 
-              {(() => {
-                const currentPhotos = mode === "single" ? singlePhotos : bulkPhotos;
-                return currentPhotos.length > 0 ? (
-                  <div className="mb-3 flex gap-2 overflow-x-auto p-1 pb-2">
-                    {currentPhotos.map((url, i) => (
-                      <div key={i} className="relative shrink-0">
-                        <img
-                          src={url}
-                          alt={`Photo ${i + 1}`}
-                          className="h-16 w-16 rounded-lg object-cover border border-zinc-200"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (mode === "single") {
-                              setSinglePhotos((prev) => prev.filter((_, idx) => idx !== i));
-                            } else {
-                              setBulkPhotos((prev) => prev.filter((_, idx) => idx !== i));
-                            }
-                          }}
-                          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600"
-                        >
-                          <Icon name="close" className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : null;
-              })()}
+              {singlePhotos.length > 0 && (
+                <div className="mb-3 flex gap-2 overflow-x-auto p-1 pb-2">
+                  {singlePhotos.map((url, i) => (
+                    <div key={i} className="relative shrink-0">
+                      <img
+                        src={url}
+                        alt={`Photo ${i + 1}`}
+                        className="h-16 w-16 rounded-lg object-cover border border-zinc-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setSinglePhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600"
+                      >
+                        <Icon name="close" className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-200 py-4 text-xs font-medium text-zinc-400 hover:border-zinc-300 hover:text-zinc-500">
                 <Icon name="plus" className="h-4 w-4" />
@@ -440,11 +418,169 @@ function AddPointPanel({
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={handleFileUpload}
+                  onChange={(e) => handleFileUpload(e, "single")}
                   disabled={isUploading}
                 />
               </label>
             </div>
+          </>
+        )}
+
+        {mode === "bulk" && addDetails && (
+          <>
+            {/* Endpoint Type Tabs */}
+            <div className="mb-6">
+              <div className="flex rounded-lg border border-zinc-200 bg-zinc-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setEndpointType("start")}
+                  className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${endpointType === "start" ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200" : "text-zinc-500 hover:text-zinc-700"}`}
+                >
+                  Starting Point
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEndpointType("end")}
+                  className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${endpointType === "end" ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200" : "text-zinc-500 hover:text-zinc-700"}`}
+                >
+                  Ending Point
+                </button>
+              </div>
+            </div>
+
+            {endpointType === "start" ? (
+              <div className="mb-6">
+                <div className="mb-4">
+                  <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                    POINT LABEL
+                  </label>
+                  <input
+                    type="text"
+                    value={startLabel}
+                    onChange={(e) => setStartLabel(e.target.value)}
+                    placeholder="e.g., North Central Hub"
+                    className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 focus:border-[#db2777] focus:outline-none"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                    NOTES
+                  </label>
+                  <textarea
+                    value={startNotes}
+                    onChange={(e) => setStartNotes(e.target.value)}
+                    placeholder="Describe the geotechnical observations or site conditions..."
+                    rows={3}
+                    className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 placeholder:text-zinc-400 focus:border-[#db2777] focus:outline-none resize-none"
+                  />
+                </div>
+                <div>
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-[#db2777]" />
+                    <span className="text-xs font-semibold uppercase tracking-wide text-[#db2777]">
+                      Site Photos
+                    </span>
+                  </div>
+                  {startPhotos.length > 0 && (
+                    <div className="mb-3 flex gap-2 overflow-x-auto p-1 pb-2">
+                      {startPhotos.map((url, i) => (
+                        <div key={i} className="relative shrink-0">
+                          <img
+                            src={url}
+                            alt={`Photo ${i + 1}`}
+                            className="h-16 w-16 rounded-lg object-cover border border-zinc-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setStartPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                            className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600"
+                          >
+                            <Icon name="close" className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-200 py-4 text-xs font-medium text-zinc-400 hover:border-zinc-300 hover:text-zinc-500">
+                    <Icon name="plus" className="h-4 w-4" />
+                    {isUploading ? "Uploading..." : "Add Site Photo"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e, "start")}
+                      disabled={isUploading}
+                    />
+                  </label>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-6">
+                <div className="mb-4">
+                  <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                    POINT LABEL
+                  </label>
+                  <input
+                    type="text"
+                    value={endLabel}
+                    onChange={(e) => setEndLabel(e.target.value)}
+                    placeholder="e.g., South Terminal"
+                    className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 focus:border-[#db2777] focus:outline-none"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                    NOTES
+                  </label>
+                  <textarea
+                    value={endNotes}
+                    onChange={(e) => setEndNotes(e.target.value)}
+                    placeholder="Describe the geotechnical observations or site conditions..."
+                    rows={3}
+                    className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 placeholder:text-zinc-400 focus:border-[#db2777] focus:outline-none resize-none"
+                  />
+                </div>
+                <div>
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-[#db2777]" />
+                    <span className="text-xs font-semibold uppercase tracking-wide text-[#db2777]">
+                      Site Photos
+                    </span>
+                  </div>
+                  {endPhotos.length > 0 && (
+                    <div className="mb-3 flex gap-2 overflow-x-auto p-1 pb-2">
+                      {endPhotos.map((url, i) => (
+                        <div key={i} className="relative shrink-0">
+                          <img
+                            src={url}
+                            alt={`Photo ${i + 1}`}
+                            className="h-16 w-16 rounded-lg object-cover border border-zinc-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setEndPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                            className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600"
+                          >
+                            <Icon name="close" className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-200 py-4 text-xs font-medium text-zinc-400 hover:border-zinc-300 hover:text-zinc-500">
+                    <Icon name="plus" className="h-4 w-4" />
+                    {isUploading ? "Uploading..." : "Add Site Photo"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e, "end")}
+                      disabled={isUploading}
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -482,7 +618,7 @@ export function CreateRouteForm({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState("HIGH SPEED");
-  const [color, setColor] = useState("#E91E63");
+  const color = ROUTE_TYPE_COLORS[type] ?? "#E91E63";
   const [lineStyle, setLineStyle] = useState("SOLID");
   const [points, setPoints] = useState<
     {
@@ -586,12 +722,21 @@ export function CreateRouteForm({
                     key={t}
                     type="button"
                     onClick={() => setType(t)}
-                    className={`rounded-full px-2 py-1 text-[10px] font-normal transition-colors ${
+                    className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all ${
                       type === t
-                        ? "bg-[#db2777] text-white"
+                        ? "text-white shadow-sm ring-2 ring-offset-1"
                         : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
                     }`}
+                    style={
+                      type === t
+                        ? { backgroundColor: ROUTE_TYPE_COLORS[t] }
+                        : {}
+                    }
                   >
+                    <span
+                      className="inline-block h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: ROUTE_TYPE_COLORS[t] }}
+                    />
                     {t}
                   </button>
                 ))}
@@ -606,20 +751,18 @@ export function CreateRouteForm({
             02 Appearance
           </p>
           <div className="space-y-3">
+            {/* Read-only color preview — auto-assigned from type */}
             <div>
               <label className="mb-2 block text-xs font-medium text-zinc-600">
-                Color Palette
+                Route Color
               </label>
-              <div className="flex flex-wrap gap-2">
-                {COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setColor(c)}
-                    className={`h-8 w-8 rounded-full ring-2 transition-all ${color === c ? "ring-[#db2777] ring-offset-2" : "ring-transparent hover:scale-110"}`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
+              <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5">
+                <span
+                  className="h-5 w-5 shrink-0 rounded-full shadow-sm ring-1 ring-black/10"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="font-mono text-xs font-medium text-zinc-700">{color}</span>
+                <span className="ml-auto text-xs text-zinc-400">Auto-assigned by type</span>
               </div>
             </div>
             <div>

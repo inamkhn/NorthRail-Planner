@@ -164,6 +164,9 @@ export function MapCanvas({
     });
 
     // ── Reset all route widths to default ──────────────────────────────────
+    let prevHoveredCasingId: string | null = null;
+    let prevHoveredOriginalColor: string | null = null;
+
     function resetRouteWidths() {
       const mapAny = map as any;
       const allLayers = mapAny.getStyle?.()?.layers ?? [];
@@ -172,11 +175,19 @@ export function MapCanvas({
         if (!id?.startsWith("planner-route-layer-")) continue;
         if (id.endsWith("-points") || id.endsWith("-labels") || id.endsWith("-hit")) continue;
         if (id.endsWith("-casing")) {
-          mapAny.setPaintProperty(id, "line-width", 7);
+          mapAny.setPaintProperty(id, "line-width", 4);
           mapAny.setPaintProperty(id, "line-opacity", 0.25);
         } else {
-          mapAny.setPaintProperty(id, "line-width", 4);
+          mapAny.setPaintProperty(id, "line-width", 2.5);
         }
+      }
+      // Restore original casing color for previously hovered route
+      if (prevHoveredCasingId && prevHoveredOriginalColor) {
+        if (mapAny.getLayer?.(prevHoveredCasingId)) {
+          mapAny.setPaintProperty(prevHoveredCasingId, "line-color", prevHoveredOriginalColor);
+        }
+        prevHoveredCasingId = null;
+        prevHoveredOriginalColor = null;
       }
     }
 
@@ -195,10 +206,14 @@ export function MapCanvas({
       if (hitFeature) {
         const layerId = (hitFeature.layer.id as string).replace("-hit", "");
         const casingId = `${layerId}-casing`;
-        mapAny.setPaintProperty(layerId, "line-width", 6);
+        mapAny.setPaintProperty(layerId, "line-width", 3);
         if (mapAny.getLayer?.(casingId)) {
+          // Save original color before changing to purple
+          prevHoveredCasingId = casingId;
+          prevHoveredOriginalColor = mapAny.getPaintProperty(casingId, "line-color");
+          mapAny.setPaintProperty(casingId, "line-color", "#111184");
           mapAny.setPaintProperty(casingId, "line-width", 10);
-          mapAny.setPaintProperty(casingId, "line-opacity", 0.5);
+          mapAny.setPaintProperty(casingId, "line-opacity", 1);
         }
         map.getCanvas().style.cursor = "pointer";
         return;

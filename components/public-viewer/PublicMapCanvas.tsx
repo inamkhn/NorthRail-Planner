@@ -67,7 +67,7 @@ export function PublicMapCanvas({
       container: containerRef.current,
       style: baseStyle === "satellite" ? MapStyle.SATELLITE : "https://api.maptiler.com/maps/base-v4/style.json",
       center: [10.2, 52.75],
-      zoom: 7.5,
+      zoom: 9,
       hash: false,
     });
 
@@ -136,6 +136,9 @@ export function PublicMapCanvas({
     });
 
     // ── Route hover highlight helpers ─────────────────────────────────────
+    let prevHoveredCasingId: string | null = null;
+    let prevHoveredOriginalColor: string | null = null;
+
     function resetRouteWidths() {
       const mapAny = map as any;
       const allLayers = mapAny.getStyle?.()?.layers ?? [];
@@ -144,11 +147,19 @@ export function PublicMapCanvas({
         if (!id?.startsWith("public-route-")) continue;
         if (id.endsWith("-points") || id.endsWith("-labels") || id.endsWith("-hit")) continue;
         if (id.endsWith("-casing")) {
-          mapAny.setPaintProperty(id, "line-width", 7);
+          mapAny.setPaintProperty(id, "line-width", 4);
           mapAny.setPaintProperty(id, "line-opacity", 0.25);
         } else if (id.endsWith("-line")) {
-          mapAny.setPaintProperty(id, "line-width", 4);
+          mapAny.setPaintProperty(id, "line-width", 2.5);
         }
+      }
+      // Restore original casing color for previously hovered route
+      if (prevHoveredCasingId && prevHoveredOriginalColor) {
+        if (mapAny.getLayer?.(prevHoveredCasingId)) {
+          mapAny.setPaintProperty(prevHoveredCasingId, "line-color", prevHoveredOriginalColor);
+        }
+        prevHoveredCasingId = null;
+        prevHoveredOriginalColor = null;
       }
     }
 
@@ -167,10 +178,14 @@ export function PublicMapCanvas({
       if (hitFeature) {
         const lineId = (hitFeature.layer.id as string).replace("-hit", "-line");
         const casingId = (hitFeature.layer.id as string).replace("-hit", "-casing");
-        mapAny.setPaintProperty(lineId, "line-width", 6);
+        mapAny.setPaintProperty(lineId, "line-width", 3);
         if (mapAny.getLayer?.(casingId)) {
+          // Save original color before changing to dark blue
+          prevHoveredCasingId = casingId;
+          prevHoveredOriginalColor = mapAny.getPaintProperty(casingId, "line-color");
+          mapAny.setPaintProperty(casingId, "line-color", "#111184");
           mapAny.setPaintProperty(casingId, "line-width", 10);
-          mapAny.setPaintProperty(casingId, "line-opacity", 0.5);
+          mapAny.setPaintProperty(casingId, "line-opacity", 1);
         }
         map.getCanvas().style.cursor = "pointer";
         return;
@@ -260,8 +275,8 @@ export function PublicMapCanvas({
           filter: ["==", "type", "location"],
           paint: {
             "circle-color": ["get", "iconColor"],
-            "circle-radius": 10,
-            "circle-stroke-width": 3,
+            "circle-radius": 7,
+            "circle-stroke-width": 2,
             "circle-stroke-color": "#ffffff",
           },
         });
@@ -291,6 +306,11 @@ export function PublicMapCanvas({
           if (activeFilter !== "All" && route.type !== activeFilter) continue;
 
           const sourceId = `public-route-${route.id}`;
+
+          let dasharray: number[] | undefined;
+          if (route.lineStyle === "DASHED") dasharray = [2, 2];
+          else if (route.lineStyle === "DOTTED") dasharray = [1, 2];
+          else if (route.lineStyle === "DASH-DOT") dasharray = [4, 2, 1, 2];
 
           const features: any[] = [];
 
@@ -337,7 +357,7 @@ export function PublicMapCanvas({
             layout: { "line-join": "round", "line-cap": "round" },
             paint: {
               "line-color": route.color || "#0284c7",
-              "line-width": 7,
+              "line-width": 4,
               "line-opacity": 0.25,
             },
           });
@@ -348,7 +368,11 @@ export function PublicMapCanvas({
             source: sourceId,
             filter: ["==", "type", "line"],
             layout: { "line-join": "round", "line-cap": "round" },
-            paint: { "line-color": route.color || "#0284c7", "line-width": 4 },
+            paint: {
+              "line-color": route.color || "#0284c7",
+              "line-width": 2.5,
+              ...(dasharray ? { "line-dasharray": dasharray } : {}),
+            },
           });
 
           // Invisible wide hit layer for easy hover
@@ -372,7 +396,7 @@ export function PublicMapCanvas({
             filter: ["all", ["==", "type", "point"], ["any", ["==", "isEndpoint", true], ["==", "pointType", "single"]]],
             paint: {
               "circle-color": "#ffffff",
-              "circle-radius": 8,
+              "circle-radius": 5,
               "circle-stroke-width": 3,
               "circle-stroke-color": route.color || "#0284c7",
             },

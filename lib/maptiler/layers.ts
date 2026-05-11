@@ -58,20 +58,14 @@ export function addOrUpdateRouteLayer(map: MapTilerMap, variant: RouteVariantDef
         },
         paint: {
           "line-color": variant.color,
-          "line-width": 7,
+          "line-width": 4,
           "line-opacity": 0.25,
-          ...(dasharray ? { "line-dasharray": dasharray } : {}),
         },
       },
       hasLayer(map, layerId) ? layerId : undefined,
     );
   } else {
     mapAny.setPaintProperty(casingLayerId, "line-color", variant.color);
-    if (dasharray) {
-      mapAny.setPaintProperty(casingLayerId, "line-dasharray", dasharray);
-    } else {
-      mapAny.setPaintProperty(casingLayerId, "line-dasharray", undefined);
-    }
   }
 
   if (!hasLayer(map, layerId)) {
@@ -85,7 +79,7 @@ export function addOrUpdateRouteLayer(map: MapTilerMap, variant: RouteVariantDef
       },
       paint: {
         "line-color": variant.color,
-        "line-width": 4,
+        "line-width": 2.5,
         "line-opacity": 0.9,
         ...(dasharray ? { "line-dasharray": dasharray } : {}),
       },
@@ -375,6 +369,6 @@ export function fitToBoundary(map: MapTilerMap, geojson: GeoJSON.Geometry) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (map as any).fitBounds?.(
     [[minLng, minLat], [maxLng, maxLat]],
-    { padding: 60, duration: 900, maxZoom: 13 },
+    { padding: 20, duration: 900, maxZoom: 14 },
   );
 }

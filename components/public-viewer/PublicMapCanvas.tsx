@@ -7,6 +7,7 @@ import { fetchCityBoundary } from "@/lib/maptiler/geocoding";
 import { fitToBoundary } from "@/lib/maptiler/layers";
 import { fetchLocations } from "@/lib/actions";
 import { PublicPointPopup } from "./PublicPointPopup";
+import { RoutePopup } from "../planner/MapCanvas/RoutePopup";
 import { createRoot } from "react-dom/client";
 
 const API_KEY = process.env.NEXT_PUBLIC_MAPTILER_API_KEY || "";
@@ -31,6 +32,7 @@ export function PublicMapCanvas({
   );
   const [mapReady, setMapReady] = useState(false);
   const popupRef = useRef<Popup | null>(null);
+  const routePopupRef = useRef<Popup | null>(null);
   const prevSelectedIdRef = useRef<string | null>(null);
 
   // Set API key once
@@ -188,7 +190,38 @@ export function PublicMapCanvas({
           mapAny.setPaintProperty(casingId, "line-opacity", 1);
         }
         map.getCanvas().style.cursor = "pointer";
+
+        // Show Route Popup
+        if (hitFeature.properties && hitFeature.properties.title) {
+          if (!routePopupRef.current) {
+            const popupNode = document.createElement("div");
+            const root = createRoot(popupNode);
+            root.render(
+              <RoutePopup
+                title={hitFeature.properties.title}
+                description={hitFeature.properties.description}
+                color={hitFeature.properties.color}
+              />
+            );
+            routePopupRef.current = new Popup({
+              closeButton: false,
+              closeOnClick: false,
+              className: "custom-route-popup",
+              offset: 10,
+            })
+              .setLngLat(e.lngLat)
+              .setDOMContent(popupNode)
+              .addTo(map);
+          } else {
+            routePopupRef.current.setLngLat(e.lngLat);
+          }
+        }
         return;
+      }
+
+      if (routePopupRef.current) {
+        routePopupRef.current.remove();
+        routePopupRef.current = null;
       }
 
       // Point / circle cursor styling
@@ -220,6 +253,10 @@ export function PublicMapCanvas({
     const handleMouseLeave = () => {
       resetRouteWidths();
       map.getCanvas().style.cursor = "";
+      if (routePopupRef.current) {
+        routePopupRef.current.remove();
+        routePopupRef.current = null;
+      }
     };
     map.on("mouseleave", handleMouseLeave);
 
@@ -323,7 +360,13 @@ export function PublicMapCanvas({
                   .sort((a: any, b: any) => a.order - b.order)
                   .map((p: any) => [p.lng, p.lat]),
               },
-              properties: { id: route.id, type: "line" },
+              properties: { 
+                id: route.id, 
+                type: "line",
+                title: route.name,
+                description: route.description,
+                color: route.color || "#0284c7"
+              },
             });
           }
 

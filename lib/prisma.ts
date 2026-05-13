@@ -85,7 +85,7 @@ export async function createRoute(data: {
   color: string;
   lineStyle: string;
   locationId: string;
-  points: Array<{ label: string; lat: number; lng: number; notes?: string; order: number; type?: "single" | "bulk" }>;
+  points: Array<{ label: string; lat: number; lng: number; notes?: string; photos?: string[]; order: number; type?: "single" | "bulk" }>;
 }) {
   const { points, ...routeData } = data;
   return prisma.route.create({
@@ -111,6 +111,34 @@ export async function updateRoute(id: string, data: Partial<{
   lineStyle: string;
 }>) {
   return prisma.route.update({ where: { id }, data });
+}
+
+export async function updateFullRoute(id: string, data: {
+  name: string;
+  description?: string;
+  type: string;
+  color: string;
+  lineStyle: string;
+  points: Array<{ label: string; lat: number; lng: number; notes?: string; photos?: string[]; order: number; type?: "single" | "bulk" }>;
+}) {
+  const { points, ...routeData } = data;
+  return prisma.$transaction(async (tx:any) => {
+    await tx.routePoint.deleteMany({ where: { routeId: id } });
+    return tx.route.update({
+      where: { id },
+      data: {
+        ...routeData,
+        points: {
+          create: points,
+        },
+      },
+      include: {
+        points: {
+          orderBy: { order: "asc" },
+        },
+      },
+    });
+  });
 }
 
 export async function deleteRoute(id: string) {

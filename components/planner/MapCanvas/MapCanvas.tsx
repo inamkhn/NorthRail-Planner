@@ -11,6 +11,7 @@ import {
 } from "@maptiler/sdk";
 import { MapControls } from "./MapControls";
 import { PointPopup } from "./PointPopup";
+import { RoutePopup } from "./RoutePopup";
 import type {
   RouteVariantDef,
   ResistanceLayerDef,
@@ -55,6 +56,7 @@ export function MapCanvas({
   const mapRef = useRef<MapTilerMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
   const popupRef = useRef<Popup | null>(null);
+  const routePopupRef = useRef<Popup | null>(null);
 
   const [baseStyle, setBaseStyle] = useState<BaseStyle>("streets");
   const style =
@@ -216,7 +218,38 @@ export function MapCanvas({
           mapAny.setPaintProperty(casingId, "line-opacity", 1);
         }
         map.getCanvas().style.cursor = "pointer";
+
+        // Show Route Popup
+        if (hitFeature.properties && hitFeature.properties.title) {
+          if (!routePopupRef.current) {
+            const popupNode = document.createElement("div");
+            const root = createRoot(popupNode);
+            root.render(
+              <RoutePopup
+                title={hitFeature.properties.title}
+                description={hitFeature.properties.description}
+                color={hitFeature.properties.color}
+              />
+            );
+            routePopupRef.current = new Popup({
+              closeButton: false,
+              closeOnClick: false,
+              className: "custom-route-popup",
+              offset: 10,
+            })
+              .setLngLat(e.lngLat)
+              .setDOMContent(popupNode)
+              .addTo(map);
+          } else {
+            routePopupRef.current.setLngLat(e.lngLat);
+          }
+        }
         return;
+      }
+
+      if (routePopupRef.current) {
+        routePopupRef.current.remove();
+        routePopupRef.current = null;
       }
 
       // Point layer interactivity
@@ -240,6 +273,10 @@ export function MapCanvas({
     map.on("mouseleave", () => {
       resetRouteWidths();
       map.getCanvas().style.cursor = "";
+      if (routePopupRef.current) {
+        routePopupRef.current.remove();
+        routePopupRef.current = null;
+      }
     });
 
     return () => {

@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NorthRailPlanner",
-  description: "NorthRail Planner for route management and visualization",
+  title: "SampleApp",
+  description: "SampleApp for route management and visualization",
   icons: {
     icon: "/icon.svg",
     apple: "/icon.svg",

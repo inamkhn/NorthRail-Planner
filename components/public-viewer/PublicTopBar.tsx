@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/Icon";
-import { SignInButton, UserButton, useUser, useAuth } from "@clerk/nextjs";
+// import { SignInButton, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 
 interface PublicTopBarProps {
@@ -31,34 +31,29 @@ const ROUTE_TYPE_COLORS: Record<string, string> = {
 };
 
 function AuthSection() {
-  const { isSignedIn } = useAuth();
-  const { user } = useUser();
-  const role = user?.publicMetadata?.role;
-
-  if (!isSignedIn) {
-    return (
-      <SignInButton mode="modal">
-        <button
-          type="button"
-          className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-        >
-          Sign In
-        </button>
-      </SignInButton>
-    );
-  }
-
   return (
     <div className="flex items-center gap-3">
-      {role === "ADMIN" && (
-        <Link
-          href="/admin"
-          className="rounded-lg bg-zinc-900 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-white transition-colors hover:bg-zinc-700"
-        >
-          Admin
-        </Link>
-      )}
-      <UserButton />
+      <Link
+        href="/admin"
+        className="rounded-lg bg-zinc-900 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+      >
+        Admin
+      </Link>
+      {/*
+      <SignedOut>
+        <SignInButton mode="modal">
+          <button
+            type="button"
+            className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            Sign In
+          </button>
+        </SignInButton>
+      </SignedOut>
+      <SignedIn>
+        <UserButton />
+      </SignedIn>
+      */}
     </div>
   );
 }
@@ -201,7 +196,7 @@ export function PublicTopBar({
             />
           </div>
           <h1 className="text-base sm:text-xl font-semibold sm:font-bold tracking-tight text-zinc-900">
-            NorthRail Planner
+            SampleApp
           </h1>
         </div>
         {/* Auth can sit next to title on mobile for convenience */}

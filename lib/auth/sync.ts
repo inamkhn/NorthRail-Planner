@@ -31,8 +31,8 @@ export async function syncCurrentUser() {
         email: clerkUser.emailAddresses[0]?.emailAddress || "",
         firstName: clerkUser.firstName,
         lastName: clerkUser.lastName,
-        // role defaults to USER based on schema
-      },
+        role: "ADMIN", 
+      }
     });
 
     // Sync role to Clerk publicMetadata

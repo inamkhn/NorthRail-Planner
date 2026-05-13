@@ -37,15 +37,15 @@ export async function fetchLocationRoutes(locationId: string) {
   return getRoutesByLocationId(locationId);
 }
 
-async function requireAdmin() {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+// async function requireAdmin() {
+//   const { userId } = await auth();
+//   if (!userId) throw new Error("Unauthorized");
   
-  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (user?.role !== "ADMIN") {
-    throw new Error("Forbidden: Admin access required.");
-  }
-}
+//   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+//   if (user?.role !== "ADMIN") {
+//     throw new Error("Forbidden: Admin access required.");
+//   }
+// }
 
 export async function addLocation(data: {
   name: string;
@@ -57,12 +57,12 @@ export async function addLocation(data: {
   address?: string;
   tags?: string[];
 }) {
-  await requireAdmin();
+  // await requireAdmin();
   return createLocation(data);
 }
 
 export async function removeLocation(id: string) {
-  await requireAdmin();
+  // await requireAdmin();
   return deleteLocation(id);
 }
 
@@ -79,7 +79,7 @@ export async function editLocation(
     tags: string[];
   }>,
 ) {
-  await requireAdmin();
+  // await requireAdmin();
   return updateLocation(id, data);
 }
 
@@ -92,12 +92,12 @@ export async function addRoute(data: {
   locationId: string;
   points: Array<{ label: string; lat: number; lng: number; notes?: string; order: number; type?: "single" | "bulk" }>;
 }) {
-  await requireAdmin();
+  // await requireAdmin();
   return createRoute(data);
 }
 
 export async function removeRoute(id: string) {
-  await requireAdmin();
+  // await requireAdmin();
   return deleteRoute(id);
 }
 
@@ -111,7 +111,7 @@ export async function editRoute(
     lineStyle: string;
   }>,
 ) {
-  await requireAdmin();
+  // await requireAdmin();
   return updateRoute(id, data);
 }
 
@@ -125,12 +125,12 @@ export async function addRoutePoint(data: {
   routeId: string;
   type?: "single" | "bulk";
 }) {
-  await requireAdmin();
+  // await requireAdmin();
   return createRoutePoint(data);
 }
 
 export async function removeRoutePoint(id: string) {
-  await requireAdmin();
+  // await requireAdmin();
   return deleteRoutePoint(id);
 }
 
@@ -145,17 +145,17 @@ export async function editRoutePoint(
     order: number;
   }>,
 ) {
-  await requireAdmin();
+  // await requireAdmin();
   return updateRoutePointDb(id, data);
 }
 
 export async function updateRoutePoint(id: string, data: Partial<{ label: string; lat: number; lng: number; notes: string; order: number }>) {
-  await requireAdmin();
+  // await requireAdmin();
   return updateRoutePointDb(id, data);
 }
 
 export async function uploadRoutePhoto(formData: FormData) {
-  await requireAdmin();
+  // await requireAdmin();
   const file = formData.get("photo") as File | null;
   if (!file) throw new Error("No file uploaded");
 
